@@ -29,14 +29,13 @@
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
-const firebaseConfig = {
-    apiKey: "AIzaSyD_gobCF_t0E_Savxpu6aMKVov0GFuGTWA",
-    authDomain: "fantasy-draft-a1cea.firebaseapp.com",
-    projectId: "fantasy-draft-a1cea",
-    storageBucket: "fantasy-draft-a1cea.firebasestorage.app",
-    messagingSenderId: "231026811342",
-    appId: "1:231026811342:web:05ec9dde3da8b2aaca0b9f",
-    measurementId: "G-W313DQQW09"
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -1225,85 +1224,82 @@ window.openQueueModal = async function(rk) {
   }
 
   try {
-    // Step 1: search ESPN for the player by name
-    const searchName = encodeURIComponent(p.name.replace(/['']/g, '').split(' ').slice(0,2).join(' '));
-    const searchRes  = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/athletes?search=${searchName}&limit=5`,
-      { mode: 'cors' }
+    // ── YOUR RAPIDAPI KEY ─────────────────────────────────────────
+    const RAPID_KEY = '65a7e2a60amsh5c8551ded8d453fp157b05jsn09e7c4199a21';
+    // ─────────────────────────────────────────────────────────────
+
+    const playerName = encodeURIComponent(p.name);
+    const statsRes   = await fetch(
+      `https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo?playerName=${playerName}&statsToGet=true&season=2024`,
+      {
+        headers: {
+          'x-rapidapi-host': 'tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com',
+          'x-rapidapi-key':  RAPID_KEY
+        }
+      }
     );
-    if (!searchRes.ok) throw new Error('ESPN search failed');
-    const searchData = await searchRes.json();
-    const athletes   = searchData.athletes || [];
-
-    // Find best name match
-    const nameLower  = p.name.toLowerCase().replace(/[^a-z ]/g,'');
-    let espnAthlete  = athletes.find(a => {
-      const full = (a.fullName || '').toLowerCase().replace(/[^a-z ]/g,'');
-      return full === nameLower || full.includes(nameLower.split(' ')[0]) && full.includes(nameLower.split(' ').slice(-1)[0]);
-    });
-    if (!espnAthlete && athletes.length) espnAthlete = athletes[0];
-    if (!espnAthlete) throw new Error('Player not found on ESPN');
-
-    const espnId = espnAthlete.id;
-
-    // Step 2: fetch their stats
-    const statsRes  = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/athletes/${espnId}/stats`,
-      { mode: 'cors' }
-    );
-    if (!statsRes.ok) throw new Error('Stats fetch failed');
+    if (!statsRes.ok) throw new Error(`API error ${statsRes.status}`);
     const statsData = await statsRes.json();
 
-    // Parse stat categories
-    const statMap = {};
-    const splits  = statsData.splits || {};
-    const cats    = splits.categories || [];
-    cats.forEach(cat => {
-      (cat.stats || []).forEach(s => { statMap[s.name] = s.value; });
-    });
+    // Tank01 returns body as array or object
+    const body    = statsData.body;
+    const players = Array.isArray(body) ? body : (body ? [body] : []);
+    if (!players.length) throw new Error('Player not found');
+
+    // Best match by name
+    const nameLower = p.name.toLowerCase().replace(/[^a-z ]/g,'');
+    const player    = players.find(pl => {
+      const full = ((pl.longName || pl.playerName || '')).toLowerCase().replace(/[^a-z ]/g,'');
+      return full === nameLower || (full.includes(nameLower.split(' ')[0]) && full.includes(nameLower.split(' ').slice(-1)[0]));
+    }) || players[0];
+
+    const stats  = player.stats || {};
+    const s2024  = stats['2024'] || stats;
 
     // Build display stats by position
     let statDefs = [];
     if (p.pos === 'QB') {
       statDefs = [
-        { key: 'passingYards',       label: 'PASS YDS' },
-        { key: 'passingTouchdowns',  label: 'PASS TD' },
-        { key: 'interceptions',      label: 'INT' },
-        { key: 'completionPct',      label: 'COMP%', fmt: v => v.toFixed(1) + '%' },
-        { key: 'rushingYards',       label: 'RUSH YDS' },
-        { key: 'rushingTouchdowns',  label: 'RUSH TD' },
+        { key: 'passYds',   label: 'PASS YDS' },
+        { key: 'passTD',    label: 'PASS TD'  },
+        { key: 'int',       label: 'INT'       },
+        { key: 'qbr',       label: 'QBR', fmt: v => parseFloat(v).toFixed(1) },
+        { key: 'rushYds',   label: 'RUSH YDS' },
+        { key: 'rushTD',    label: 'RUSH TD'  },
       ];
     } else if (p.pos === 'RB') {
       statDefs = [
-        { key: 'rushingYards',       label: 'RUSH YDS' },
-        { key: 'rushingTouchdowns',  label: 'RUSH TD' },
-        { key: 'rushingAttempts',    label: 'ATT' },
-        { key: 'yardsPerRushAttempt',label: 'YPC', fmt: v => v.toFixed(1) },
-        { key: 'receivingYards',     label: 'REC YDS' },
-        { key: 'receivingTouchdowns',label: 'REC TD' },
-        { key: 'receptions',         label: 'REC' },
+        { key: 'rushYds',   label: 'RUSH YDS' },
+        { key: 'rushTD',    label: 'RUSH TD'  },
+        { key: 'carries',   label: 'ATT'       },
+        { key: 'ypc',       label: 'YPC', fmt: v => parseFloat(v).toFixed(1) },
+        { key: 'recYds',    label: 'REC YDS'  },
+        { key: 'recTD',     label: 'REC TD'   },
+        { key: 'rec',       label: 'REC'       },
+        { key: 'targets',   label: 'TGT'       },
       ];
     } else if (p.pos === 'WR' || p.pos === 'TE') {
       statDefs = [
-        { key: 'receivingYards',     label: 'REC YDS' },
-        { key: 'receivingTouchdowns',label: 'TD' },
-        { key: 'receptions',         label: 'REC' },
-        { key: 'receivingTargets',   label: 'TGT' },
-        { key: 'yardsPerReception',  label: 'YPR', fmt: v => v.toFixed(1) },
-        { key: 'rushingYards',       label: 'RUSH YDS' },
+        { key: 'recYds',    label: 'REC YDS'  },
+        { key: 'recTD',     label: 'TD'        },
+        { key: 'rec',       label: 'REC'       },
+        { key: 'targets',   label: 'TGT'       },
+        { key: 'ypr',       label: 'YPR', fmt: v => parseFloat(v).toFixed(1) },
+        { key: 'rushYds',   label: 'RUSH YDS' },
       ];
     }
 
+    const src = s2024;
     const boxes = statDefs
-      .filter(s => statMap[s.key] !== undefined && statMap[s.key] !== null)
+      .filter(s => src[s.key] !== undefined && src[s.key] !== null && src[s.key] !== '')
       .map(s => {
-        const raw = statMap[s.key];
-        const val = s.fmt ? s.fmt(raw) : (Number.isInteger(raw) ? raw : parseFloat(raw).toFixed(1));
+        const raw = src[s.key];
+        const val = s.fmt ? s.fmt(raw) : raw;
         return `<div class="stat-box"><div class="stat-val">${val}</div><div class="stat-lbl">${s.label}</div></div>`;
       }).join('');
 
-    document.getElementById('modal-stats-grid').innerHTML = boxes || '<span style="font-size:.78rem;color:var(--dimmer)">No stat data found.</span>';
-    document.getElementById('modal-stats-note').textContent = `Source: ESPN · ${espnAthlete.fullName || p.name}`;
+    document.getElementById('modal-stats-grid').innerHTML = boxes || '<span style="font-size:.78rem;color:var(--dimmer)">No stat data for 2024.</span>';
+    document.getElementById('modal-stats-note').textContent = `Source: Tank01/RapidAPI · 2024 NFL Season`;
     document.getElementById('modal-stats-loading').style.display = 'none';
     document.getElementById('modal-stats-content').style.display = '';
 
