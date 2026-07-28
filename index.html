@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Draft HQ</title>
+
+<!-- iOS Add to Home Screen -->
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Draft HQ">
+
+<!-- Android / Chrome Add to Home Screen -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a1a0c">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -17,14 +29,13 @@
   } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
-const firebaseConfig = {
-    apiKey: "AIzaSyD_gobCF_t0E_Savxpu6aMKVov0GFuGTWA",
-    authDomain: "fantasy-draft-a1cea.firebaseapp.com",
-    projectId: "fantasy-draft-a1cea",
-    storageBucket: "fantasy-draft-a1cea.firebasestorage.app",
-    messagingSenderId: "231026811342",
-    appId: "1:231026811342:web:05ec9dde3da8b2aaca0b9f",
-    measurementId: "G-W313DQQW09"
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -245,7 +256,12 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .draft-card-status.done{background:rgba(100,116,139,.18);color:#94a3b8}
 .viewing-banner{background:rgba(59,130,246,.12);border-bottom:1px solid rgba(59,130,246,.3);color:#93c5fd;font-family:'Oswald',sans-serif;font-size:.85rem;letter-spacing:.06em;padding:.4rem 1rem;text-align:center;display:flex;align-items:center;justify-content:center;gap:.75rem}
 
-/* MODAL */
+@media(max-width:600px){
+  .page-content{padding:1rem .85rem}
+  .player-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .nav-brand{font-size:1rem}
+  .login-card{padding:2rem 1.25rem}
+}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:500;padding:1.5rem}
 .modal-overlay.hidden{display:none}
 .modal-box{background:var(--panel);border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:2rem;width:100%;max-width:420px}
@@ -256,11 +272,17 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .modal-player-name{font-weight:600;font-size:1.05rem;margin-bottom:.35rem}
 .modal-player-meta{display:flex;gap:.5rem;align-items:center}
 
-@media(max-width:600px){
-  .page-content{padding:1rem .85rem}
-  .player-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
-  .nav-brand{font-size:1rem}
-  .login-card{padding:2rem 1.25rem}
+.nav-hamburger{display:none;background:none;border:1px solid rgba(245,166,35,.4);border-radius:var(--radius);color:var(--amber);font-size:1.05rem;line-height:1;padding:.4rem .65rem;cursor:pointer;transition:all .15s;flex-shrink:0}
+.nav-hamburger:hover{background:rgba(245,166,35,.15)}
+.nav-drawer{display:none;position:fixed;inset:0;z-index:400}
+.nav-drawer.open{display:block}
+.nav-drawer-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+.nav-drawer-panel{position:absolute;top:0;right:0;bottom:0;width:220px;background:var(--panel);border-left:1px solid rgba(245,166,35,.25);display:flex;flex-direction:column;padding-top:calc(1rem + env(safe-area-inset-top));gap:.25rem;padding:1rem}
+.nav-drawer-panel .nav-btn{text-align:left;font-size:1rem;padding:.65rem 1rem;border-radius:6px}
+.nav-drawer-panel .nav-btn.active{background:rgba(245,166,35,.1)}
+@media(max-width:640px){
+  .nav-links{display:none}
+  .nav-hamburger{display:block}
 }
 </style>
 </head>
@@ -301,9 +323,26 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
     </div>
     <div class="nav-right">
       <div class="nav-user" id="nav-user-label"></div>
+      <button class="nav-hamburger" onclick="openDrawer()" aria-label="Menu">☰</button>
       <button class="btn-sm" onclick="doLogout()" style="font-size:.7rem;padding:.25rem .55rem">LEAVE</button>
     </div>
   </nav>
+
+  <!-- Mobile nav drawer -->
+  <div class="nav-drawer" id="nav-drawer">
+    <div class="nav-drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="nav-drawer-panel">
+      <button class="nav-btn" onclick="showTab('board');closeDrawer()"    id="drawer-board">BOARD</button>
+      <button class="nav-btn" onclick="showTab('research');closeDrawer()" id="drawer-research">RESEARCH</button>
+      <button class="nav-btn" onclick="showTab('pick');closeDrawer()"     id="drawer-pick">MY PICK</button>
+      <button class="nav-btn" onclick="showTab('history');closeDrawer()"  id="drawer-history">DRAFTS</button>
+      <button class="nav-btn" onclick="showTab('admin');closeDrawer()"    id="drawer-admin" style="display:none">ADMIN</button>
+      <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--line)">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem;font-style:italic" id="drawer-user-label"></div>
+        <button class="btn-sm danger" onclick="doLogout()" style="width:100%;text-align:center">LEAVE DRAFT</button>
+      </div>
+    </div>
+  </div>
 
   <!-- viewing past draft banner -->
   <div id="viewing-banner" class="viewing-banner" style="display:none">
@@ -771,6 +810,15 @@ function onDraftStateChange() {
   updateAdminUI();
   renderResearch();
 }
+
+// ── HAMBURGER DRAWER ───────────────────────────────────────────────────────
+window.openDrawer = function() {
+  document.getElementById('nav-drawer').classList.add('open');
+  document.getElementById('drawer-user-label').textContent = currentUser || '';
+};
+window.closeDrawer = function() {
+  document.getElementById('nav-drawer').classList.remove('open');
+};
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 window.showTab = function(tab) {
