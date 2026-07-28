@@ -18,13 +18,12 @@
 
   // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
   const firebaseConfig = {
-    apiKey: "AIzaSyD_gobCF_t0E_Savxpu6aMKVov0GFuGTWA",
-    authDomain: "fantasy-draft-a1cea.firebaseapp.com",
-    projectId: "fantasy-draft-a1cea",
-    storageBucket: "fantasy-draft-a1cea.firebasestorage.app",
-    messagingSenderId: "231026811342",
-    appId: "1:231026811342:web:05ec9dde3da8b2aaca0b9f",
-    measurementId: "G-W313DQQW09"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -138,20 +137,33 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .join-section.disabled{opacity:.38;pointer-events:none}
 .join-label{font-family:'Oswald',sans-serif;font-size:.9rem;color:var(--muted);letter-spacing:.06em}
 .join-name-display{font-family:'Oswald',sans-serif;font-size:.95rem;color:var(--amber)}
-.board-wrap{overflow-x:auto;padding-bottom:1rem}
+.board-wrap{overflow:auto;max-height:calc(100vh - 180px);padding-bottom:1rem}
 .draft-table{border-collapse:collapse;min-width:100%}
-.draft-table th{font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:.08em;color:var(--muted);background:var(--panel);padding:.5rem .6rem;text-align:center;position:sticky;top:52px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:10}
+.draft-table th{font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:.08em;color:var(--muted);background:var(--panel);padding:.5rem .6rem;text-align:center;position:sticky;top:0;border-bottom:1px solid var(--line);white-space:nowrap;z-index:10}
 .draft-table td{border:1px solid var(--line);vertical-align:top}
-.round-label{font-family:'Oswald',sans-serif;font-size:.82rem;color:var(--muted);padding:.5rem .6rem;text-align:center;background:var(--panel);white-space:nowrap}
+.round-label{font-family:'Oswald',sans-serif;font-size:.82rem;color:var(--muted);padding:.5rem .6rem;text-align:center;background:var(--panel);white-space:nowrap;position:sticky;left:0;z-index:5}
 .pick-cell{min-width:110px;max-width:140px;padding:.5rem .6rem;background:var(--turf);transition:background .12s;position:relative}
 .pick-cell.empty-cell{background:var(--field)}
 .pick-cell.on-clock{background:rgba(245,166,35,.12);outline:2px solid var(--amber);outline-offset:-2px}
-.pick-cell.picked{background:var(--picked-bg);cursor:default}
-.pick-num{font-size:.65rem;color:var(--muted);margin-bottom:.2rem}
-.pick-name{font-size:.8rem;font-weight:600;line-height:1.2;margin-bottom:.25rem}
+/* position-colored filled cells */
+.pick-cell.picked{cursor:default}
+.pick-cell.pos-WR{background:#6b7280;color:#fff}
+.pick-cell.pos-RB{background:#1a56db;color:#fff}
+.pick-cell.pos-QB{background:#c81e1e;color:#fff}
+.pick-cell.pos-TE{background:#057a55;color:#fff}
+.pick-cell.pos-K{background:#e3a008;color:#111}
+.pick-cell.pos-DST{background:#9d174d;color:#fff}
+.pick-cell.pos-WR .pick-num,.pick-cell.pos-WR .pick-team,.pick-cell.pos-WR .pick-bye{color:rgba(255,255,255,.65)}
+.pick-cell.pos-RB .pick-num,.pick-cell.pos-RB .pick-team,.pick-cell.pos-RB .pick-bye{color:rgba(255,255,255,.65)}
+.pick-cell.pos-QB .pick-num,.pick-cell.pos-QB .pick-team,.pick-cell.pos-QB .pick-bye{color:rgba(255,255,255,.65)}
+.pick-cell.pos-TE .pick-num,.pick-cell.pos-TE .pick-team,.pick-cell.pos-TE .pick-bye{color:rgba(255,255,255,.65)}
+.pick-cell.pos-K  .pick-num,.pick-cell.pos-K  .pick-team,.pick-cell.pos-K  .pick-bye{color:rgba(0,0,0,.55)}
+.pick-cell.pos-DST .pick-num,.pick-cell.pos-DST .pick-team,.pick-cell.pos-DST .pick-bye{color:rgba(255,255,255,.65)}
+.pick-num{font-size:.65rem;margin-bottom:.2rem}
+.pick-name{font-size:.8rem;font-weight:700;line-height:1.2;margin-bottom:.25rem}
 .pick-meta{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center}
-.pick-team{font-size:.65rem;color:var(--muted)}
-.pick-bye{font-size:.65rem;color:var(--muted)}
+.pick-team{font-size:.65rem}
+.pick-bye{font-size:.65rem}
 .drafter-chip{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:.25rem}
 
 /* RESEARCH */
@@ -331,6 +343,9 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
       <button class="filter-btn" onclick="setResearchPos('TE')"  id="pos-TE">TE</button>
       <button class="filter-btn" onclick="setResearchPos('K')"   id="pos-K">K</button>
       <button class="filter-btn" onclick="setResearchPos('DST')" id="pos-DST">DST</button>
+      <select id="research-team" class="search-box" style="width:auto;min-width:90px" onchange="filterResearch()">
+        <option value="">ALL TEAMS</option>
+      </select>
       <button class="toggle-btn" id="hide-picked-btn" onclick="toggleHidePicked()">HIDE PICKED</button>
     </div>
     <div class="player-grid" id="research-grid"></div>
@@ -456,6 +471,18 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
         <div class="feedback" id="fb-edit"></div>
       </div>
 
+      <!-- Placeholder Slots -->
+      <div class="admin-card">
+        <div class="admin-card-title">👤 Placeholder Slots</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.75rem">
+          Replace any open "Slot N" with a named placeholder — useful for people who aren't online yet.
+        </div>
+        <div id="admin-placeholder-list" style="margin-bottom:.75rem">
+          <div style="font-size:.78rem;color:var(--dimmer)">No open slots.</div>
+        </div>
+        <div class="feedback" id="fb-placeholder"></div>
+      </div>
+
     </div>
   </div>
 
@@ -562,14 +589,16 @@ const ADMIN_NAMES = ['david', 'admin']; // lowercase names that get the admin ta
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let currentUser    = null;
-let activeDraftId  = null;   // Firestore doc ID of the currently live draft
-let viewingDraftId = null;   // doc ID being viewed (may differ from active when browsing history)
-let draftState     = null;   // live snapshot data
+let activeDraftId  = null;
+let viewingDraftId = null;
+let draftState     = null;
 let drafters       = [];
 let picks          = {};
 let mySlot         = null;
 let unsubDraft     = null;
-let allDrafts      = [];     // cached list for history tab
+let unsubPresence  = null;   // listener for online users
+let allDrafts      = [];
+let onlineUsers    = new Set(); // names of currently online users
 
 let researchPos    = 'ALL';
 let hidePicked     = false;
@@ -603,6 +632,7 @@ async function bootApp() {
   renderResearch();
   await findAndSubscribeActiveDraft();
   loadHistoryTab();
+  startPresence();
   showTab('board');
 }
 
@@ -623,9 +653,12 @@ document.getElementById('login-name').addEventListener('keydown', e => { if (e.k
 
 window.doLogout = function() {
   if (unsubDraft) { unsubDraft(); unsubDraft = null; }
+  if (unsubPresence) { unsubPresence(); unsubPresence = null; }
+  clearPresence();
   localStorage.removeItem('draftUser');
   currentUser = null; draftState = null; drafters = []; picks = {};
   mySlot = null; queuedPlayer = null; activeDraftId = null; viewingDraftId = null;
+  onlineUsers = new Set();
   showPage('login');
 };
 
@@ -679,6 +712,53 @@ async function saveDraftFields(fields) {
   const db  = window._db;
   const ref = window._doc(db, 'drafts', viewingDraftId);
   await window._setDoc(ref, fields, { merge: true });
+}
+
+// ── PRESENCE ───────────────────────────────────────────────────────────────
+// Uses drafts/{draftId}/presence/{userName} — heartbeat every 20s, stale after 40s
+
+let _presenceInterval = null;
+
+async function startPresence() {
+  if (!activeDraftId || !currentUser) return;
+  await writePresence();
+  _presenceInterval = setInterval(writePresence, 20000);
+
+  // subscribe to all presence docs for this draft
+  const db  = window._db;
+  const col = window._collection(db, 'drafts', activeDraftId, 'presence');
+  unsubPresence = window._onSnapshot(col, snap => {
+    const now = Date.now();
+    onlineUsers = new Set();
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.ts && (now - data.ts) < 40000) {
+        onlineUsers.add(d.id.toLowerCase());
+      }
+    });
+    renderAdminOrderList();
+  });
+
+  window.addEventListener('beforeunload', clearPresence);
+}
+
+async function writePresence() {
+  if (!activeDraftId || !currentUser) return;
+  try {
+    const db  = window._db;
+    const ref = window._doc(db, 'drafts', activeDraftId, 'presence', currentUser);
+    await window._setDoc(ref, { ts: Date.now(), name: currentUser });
+  } catch(e) { /* ignore — non-critical */ }
+}
+
+async function clearPresence() {
+  if (_presenceInterval) { clearInterval(_presenceInterval); _presenceInterval = null; }
+  if (!activeDraftId || !currentUser) return;
+  try {
+    const db  = window._db;
+    const ref = window._doc(db, 'drafts', activeDraftId, 'presence', currentUser);
+    await window._deleteDoc(ref);
+  } catch(e) { /* ignore */ }
 }
 
 // ── DRAFT STATE CHANGE ─────────────────────────────────────────────────────
@@ -795,11 +875,16 @@ function renderBoard() {
       const color   = `var(--d${col % 16})`;
 
       if (pick) {
-        html += `<td class="pick-cell picked" style="border-left:3px solid ${color}">
+        const darkText = pick.pos === 'K';
+        const nameColor = darkText ? '#111' : '#fff';
+        html += `<td class="pick-cell picked pos-${pick.pos}" style="border-left:4px solid ${color}">
           <div class="pick-num">#${pNum}</div>
-          <div class="pick-name" style="color:var(--picked-text)">${pick.name}</div>
-          <div class="pick-meta"><span class="badge ${pick.pos}">${pick.pos}</span>
-          <span class="pick-team">${pick.team}</span><span class="pick-bye">Bye ${pick.bye}</span></div>
+          <div class="pick-name" style="color:${nameColor}">${pick.name}</div>
+          <div class="pick-meta">
+            <span style="font-family:'Oswald',sans-serif;font-size:.68rem;font-weight:700;opacity:.75;color:${nameColor}">${pick.pos}</span>
+            <span class="pick-team">${pick.team}</span>
+            <span class="pick-bye">Bye ${pick.bye}</span>
+          </div>
         </td>`;
       } else if (isNow) {
         html += `<td class="pick-cell on-clock" style="border-left:3px solid ${color}">
@@ -992,17 +1077,20 @@ window.setResearchPos = function(pos) {
 };
 
 window.filterResearch = function() {
-  const query = (document.getElementById('research-search').value || '').toLowerCase();
-  const taken = pickedNames();
+  const query    = (document.getElementById('research-search').value || '').toLowerCase();
+  const teamFilt = document.getElementById('research-team').value;
+  const taken    = pickedNames();
   document.querySelectorAll('.player-card').forEach(card => {
     const pos      = card.dataset.pos;
     const name     = card.dataset.name.toLowerCase();
+    const team     = card.dataset.team;
     const isPicked = taken.has(card.dataset.name.toLowerCase());
     card.classList.toggle('is-picked', isPicked);
     const posOk  = researchPos === 'ALL' || pos === researchPos;
     const nameOk = !query || name.includes(query);
+    const teamOk = !teamFilt || team === teamFilt;
     const hideOk = hidePicked && isPicked;
-    card.classList.toggle('hide-picked', !posOk || !nameOk || hideOk);
+    card.classList.toggle('hide-picked', !posOk || !nameOk || !teamOk || hideOk);
   });
 };
 
@@ -1017,10 +1105,18 @@ window.toggleHidePicked = function() {
 function renderResearch() {
   const grid  = document.getElementById('research-grid');
   const taken = pickedNames();
+
+  // Populate team dropdown (sorted, deduplicated, skip FA)
+  const sel = document.getElementById('research-team');
+  const prev = sel.value;
+  const teams = [...new Set(PLAYER_DATA.map(p => p.team).filter(t => t && t !== 'FA'))].sort();
+  sel.innerHTML = '<option value="">ALL TEAMS</option>' +
+    teams.map(t => `<option value="${t}"${t === prev ? ' selected' : ''}>${t}</option>`).join('');
+
   grid.innerHTML = PLAYER_DATA.map(p => {
     const isPicked = taken.has(p.name.toLowerCase());
     return `<div class="player-card${isPicked ? ' is-picked' : ''}"
-      data-pos="${p.pos}" data-name="${p.name}"
+      data-pos="${p.pos}" data-name="${p.name}" data-team="${p.team}"
       onclick="${isPicked ? '' : `openQueueModal(${p.rk})`}">
       <div class="p-rank">#${p.rk} · ${p.posRank}</div>
       <div class="p-name">${p.name}</div>
@@ -1117,7 +1213,41 @@ function updateAdminUI() {
   renderAdminOrderList();
   renderAdminPickFor();
   renderAdminEditPicks();
+  renderPlaceholderList();
 }
+
+function renderPlaceholderList() {
+  const wrap = document.getElementById('admin-placeholder-list');
+  if (!drafters.length) { wrap.innerHTML = '<div style="font-size:.78rem;color:var(--dimmer)">No open slots.</div>'; return; }
+  const openSlots = drafters.filter(d => d.name.startsWith('Slot '));
+  if (!openSlots.length) { wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted)">All slots are filled.</div>'; return; }
+  wrap.innerHTML = openSlots.map(d =>
+    `<div class="admin-row" style="margin-bottom:.5rem">
+      <span style="font-size:.78rem;color:var(--muted);width:55px;flex-shrink:0">${d.name}</span>
+      <input class="admin-input" id="ph-input-${d.slot}" type="text" placeholder="Enter name…" maxlength="32"
+        style="height:32px" onkeydown="if(event.key==='Enter')savePlaceholder(${d.slot})">
+      <button class="btn-sm green" style="padding:.25rem .6rem;font-size:.75rem" onclick="savePlaceholder(${d.slot})">SET</button>
+      <button class="btn-sm" style="padding:.25rem .6rem;font-size:.75rem" onclick="clearPlaceholder(${d.slot})">CLEAR</button>
+    </div>`
+  ).join('');
+}
+
+window.savePlaceholder = async function(slot) {
+  const inp  = document.getElementById('ph-input-' + slot);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) { document.getElementById('fb-placeholder').textContent = 'Enter a name first.'; return; }
+  const newDrafters = drafters.map(d => d.slot === slot ? { ...d, name } : d);
+  await saveDraftFields({ drafters: newDrafters });
+  document.getElementById('fb-placeholder').textContent = `Slot set to "${name}"`;
+  setTimeout(() => document.getElementById('fb-placeholder').textContent = '', 3000);
+};
+
+window.clearPlaceholder = async function(slot) {
+  const newDrafters = drafters.map(d => d.slot === slot ? { ...d, name: `Slot ${slot + 1}`, joined: false } : d);
+  await saveDraftFields({ drafters: newDrafters });
+  document.getElementById('fb-placeholder').textContent = `Slot ${slot + 1} cleared.`;
+  setTimeout(() => document.getElementById('fb-placeholder').textContent = '', 3000);
+};
 
 window.adminStartDraft = async function() {
   const name = document.getElementById('admin-draft-name').value.trim() || `Draft ${new Date().toLocaleDateString()}`;
@@ -1158,15 +1288,23 @@ window.confirmCloseDraft = async function() {
 function renderAdminOrderList() {
   const list = document.getElementById('admin-order-list');
   if (!drafters.length) { list.innerHTML = '<div style="font-size:.8rem;color:var(--muted)">Initialize draft to set order.</div>'; return; }
-  list.innerHTML = '<ul class="drafter-order-list">' + drafters.map((d, i) =>
-    `<li class="drafter-order-item">
+  list.innerHTML = '<ul class="drafter-order-list">' + drafters.map((d, i) => {
+    const isOnline  = onlineUsers.has(d.name.toLowerCase());
+    const isSlot    = d.name.startsWith('Slot ');
+    const indicator = isSlot
+      ? `<span style="font-size:.65rem;color:var(--dimmer);font-style:italic">open</span>`
+      : isOnline
+        ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.7);flex-shrink:0" title="Online"></span>`
+        : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(240,244,240,.2);flex-shrink:0" title="Offline"></span>`;
+    return `<li class="drafter-order-item">
       <span class="order-num">${i+1}</span>
+      ${indicator}
       <input class="admin-input" style="height:28px;padding:.2rem .5rem;flex:1"
         value="${d.name}" id="order-input-${d.slot}">
       <button class="btn-sm" style="padding:.15rem .45rem;font-size:.7rem" onclick="moveSlot(${d.slot},-1)">↑</button>
       <button class="btn-sm" style="padding:.15rem .45rem;font-size:.7rem" onclick="moveSlot(${d.slot},1)">↓</button>
-    </li>`
-  ).join('') + '</ul>';
+    </li>`;
+  }).join('') + '</ul>';
 }
 
 window.moveSlot = function(slot, dir) {
