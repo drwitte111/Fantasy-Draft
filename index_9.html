@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>2026 Fantasy Draft Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, doc, collection, setDoc, getDoc, getDocs, onSnapshot, updateDoc, deleteDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  window._db         = db;
+  window._doc        = doc;
+  window._collection = collection;
+  window._setDoc     = setDoc;
+  window._getDoc     = getDoc;
+  window._getDocs    = getDocs;
+  window._onSnapshot = onSnapshot;
+  window._updateDoc  = updateDoc;
+  window._deleteDoc  = deleteDoc;
+  window._writeBatch = writeBatch;
+
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+/* ═══════════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --field:   #0d1f0f;
+  --turf:    #132815;
+  --line:    #1e3d20;
+  --panel:   #0a1a0c;
+  --amber:   #f5a623;
+  --amber-d: #c47d0e;
+  --white:   #f0f4f0;
+  --muted:   rgba(240,244,240,0.45);
+  --dimmer:  rgba(240,244,240,0.18);
+  --danger:  #e04040;
+  --picked-bg: rgba(180,30,30,0.18);
+  --picked-text: #e04040;
+  --radius:  4px;
+
+  /* position colors */
+  --rb:   #3b82f6;
+  --wr:   #f5a623;
+  --qb:   #ef4444;
+  --te:   #22c55e;
+  --k:    #a855f7;
+  --dst:  #64748b;
+
+  /* drafter accent colors (up to 16) */
+  --d0: #f5a623; --d1: #3b82f6; --d2: #22c55e; --d3: #ef4444;
+  --d4: #a855f7; --d5: #ec4899; --d6: #14b8a6; --d7: #f97316;
+  --d8: #84cc16; --d9: #8b5cf6; --d10:#06b6d4; --d11:#fb923c;
+  --d12:#10b981; --d13:#6366f1; --d14:#f43f5e; --d15:#eab308;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--field);
+  color: var(--white);
+  min-height: 100vh; min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════════════ */
+#loading-overlay {
+  position: fixed; inset: 0; background: var(--field);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 1rem; z-index: 9999;
+}
+#loading-overlay.hidden { display: none; }
+.loading-logo { font-family: 'Oswald', sans-serif; font-size: 2rem; color: var(--amber); letter-spacing: .1em; }
+.loading-sub  { font-size: .85rem; color: var(--muted); font-style: italic; }
+.loading-bar  { width: 160px; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.loading-fill { height: 100%; width: 0; background: var(--amber); animation: loadanim 1.4s ease-in-out infinite; }
+@keyframes loadanim { 0%{width:0;margin-left:0} 50%{width:80%;margin-left:10%} 100%{width:0;margin-left:160px} }
+
+/* ═══════════════════════════════════════════════════
+   PAGES
+═══════════════════════════════════════════════════ */
+.page { display: none; min-height: 100dvh; flex-direction: column; }
+.page.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════════ */
+nav {
+  background: var(--panel);
+  border-bottom: 2px solid var(--amber);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.25rem;
+  padding-top: env(safe-area-inset-top);
+  height: calc(52px + env(safe-area-inset-top));
+  position: sticky; top: 0; z-index: 200;
+  flex-shrink: 0;
+}
+.nav-brand {
+  font-family: 'Oswald', sans-serif; font-size: 1.25rem;
+  color: var(--amber); letter-spacing: .08em; cursor: pointer;
+  white-space: nowrap;
+}
+.nav-brand span { color: var(--white); }
+.nav-links { display: flex; gap: .15rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-btn {
+  background: none; border: none; font-family: 'Oswald', sans-serif;
+  font-size: .95rem; letter-spacing: .06em; color: var(--muted);
+  padding: .4rem .85rem; border-radius: var(--radius);
+  cursor: pointer; transition: all .15s; white-space: nowrap; min-height: 36px;
+}
+.nav-btn:hover  { color: var(--white); background: rgba(255,255,255,.06); }
+.nav-btn.active { color: var(--amber); border-bottom: 2px solid var(--amber); }
+.nav-right { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }
+.nav-user  { font-size: .78rem; color: var(--muted); font-style: italic; white-space: nowrap; }
+.nav-clock { font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--amber); min-width: 40px; text-align: right; }
+
+/* ═══════════════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════════════ */
+.login-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.login-card {
+  background: var(--turf); border: 1px solid rgba(245,166,35,.3);
+  border-radius: 10px; padding: 3rem 2.5rem; width: 100%; max-width: 380px; text-align: center;
+}
+.login-helmet { font-size: 3.5rem; margin-bottom: .75rem; }
+.login-title  { font-family: 'Oswald', sans-serif; font-size: 2rem; color: var(--amber); letter-spacing: .06em; margin-bottom: .25rem; }
+.login-sub    { font-size: .85rem; color: var(--muted); margin-bottom: 2rem; }
+.form-label {
+  display: block; font-size: .7rem; letter-spacing: .1em;
+  color: var(--muted); margin-bottom: .4rem; text-transform: uppercase; text-align: left;
+}
+.form-input {
+  width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(245,166,35,.3);
+  border-radius: var(--radius); padding: .65rem .9rem; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 16px; min-height: 44px;
+  outline: none; transition: border-color .15s; margin-bottom: 1.25rem;
+}
+.form-input:focus { border-color: var(--amber); }
+.form-input::placeholder { color: var(--dimmer); }
+.btn-primary {
+  width: 100%; background: var(--amber); border: none;
+  border-radius: var(--radius); padding: .75rem; min-height: 44px;
+  color: var(--field); font-family: 'Oswald', sans-serif;
+  font-size: 1.05rem; letter-spacing: .06em; cursor: pointer;
+  transition: all .15s; font-weight: 600;
+}
+.btn-primary:hover    { background: #f7bb52; }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.form-error { color: var(--danger); font-size: .8rem; min-height: 1.2em; margin-top: .5rem; }
+
+/* ═══════════════════════════════════════════════════
+   COMMON UTILITIES
+═══════════════════════════════════════════════════ */
+.page-content { flex: 1; padding: 1.5rem; max-width: 1400px; width: 100%; margin: 0 auto; }
+.section-title {
+  font-family: 'Oswald', sans-serif; font-size: 1.3rem;
+  letter-spacing: .08em; color: var(--amber); margin-bottom: 1rem;
+  text-transform: uppercase; display: flex; align-items: center; gap: .5rem;
+}
+.section-title::before { content: ''; flex: 0 0 3px; height: 1.2em; background: var(--amber); border-radius: 2px; }
+.btn-sm {
+  background: rgba(245,166,35,.12); border: 1px solid rgba(245,166,35,.35);
+  color: var(--amber); font-family: 'Oswald', sans-serif; font-size: .82rem;
+  letter-spacing: .05em; padding: .35rem .75rem; border-radius: var(--radius);
+  cursor: pointer; transition: all .15s; white-space: nowrap; min-height: 32px;
+}
+.btn-sm:hover   { background: rgba(245,166,35,.22); }
+.btn-sm.danger  { background: rgba(224,64,64,.12); border-color: rgba(224,64,64,.4); color: var(--danger); }
+.btn-sm.danger:hover { background: rgba(224,64,64,.22); }
+.btn-sm.green   { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.4); color: #22c55e; }
+.btn-sm.green:hover { background: rgba(34,197,94,.22); }
+.badge {
+  display: inline-block; font-family: 'Oswald', sans-serif; font-size: .68rem;
+  letter-spacing: .06em; padding: .1rem .45rem; border-radius: 3px; font-weight: 600;
+}
+.badge.RB  { background: rgba(59,130,246,.25); color: var(--rb); }
+.badge.WR  { background: rgba(245,166,35,.2);  color: var(--wr); }
+.badge.QB  { background: rgba(239,68,68,.2);   color: var(--qb); }
+.badge.TE  { background: rgba(34,197,94,.2);   color: var(--te); }
+.badge.K   { background: rgba(168,85,247,.2);  color: var(--k);  }
+.badge.DST { background: rgba(100,116,139,.2); color: var(--dst);}
+.pick-now-banner {
+  background: var(--amber); color: var(--field);
+  font-family: 'Oswald', sans-serif; font-size: 1rem; letter-spacing: .08em;
+  padding: .5rem 1rem; text-align: center; animation: flashbanner 1s ease-in-out infinite alternate;
+}
+@keyframes flashbanner { from{opacity:1} to{opacity:.7} }
+
+/* ═══════════════════════════════════════════════════
+   DRAFT BOARD TAB
+═══════════════════════════════════════════════════ */
+.board-controls {
+  display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: 1.25rem;
+}
+.join-section {
+  background: var(--turf); border: 1px dashed rgba(245,166,35,.3);
+  border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+}
+.join-section.disabled { opacity: .38; pointer-events: none; }
+.join-label { font-family: 'Oswald', sans-serif; font-size: .9rem; color: var(--muted); letter-spacing: .06em; }
+.join-name-display { font-family: 'Oswald', sans-serif; font-size: .95rem; color: var(--amber); }
+.board-wrap { overflow-x: auto; padding-bottom: 1rem; }
+.draft-table {
+  border-collapse: collapse; min-width: 100%;
+}
+.draft-table th {
+  font-family: 'Oswald', sans-serif; font-size: .78rem; letter-spacing: .08em;
+  color: var(--muted); background: var(--panel);
+  padding: .5rem .6rem; text-align: center; position: sticky; top: 52px;
+  border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 10;
+}
+.draft-table td { border: 1px solid var(--line); vertical-align: top; }
+.round-label {
+  font-family: 'Oswald', sans-serif; font-size: .82rem; color: var(--muted);
+  padding: .5rem .6rem; text-align: center; background: var(--panel); white-space: nowrap;
+}
+.pick-cell {
+  min-width: 110px; max-width: 140px; padding: .5rem .6rem;
+  background: var(--turf); cursor: pointer; transition: background .12s;
+  position: relative;
+}
+.pick-cell.empty-cell { background: var(--field); }
+.pick-cell.on-clock   { background: rgba(245,166,35,.12); outline: 2px solid var(--amber); outline-offset: -2px; }
+.pick-cell.picked     { background: var(--picked-bg); cursor: default; }
+.pick-cell:hover:not(.picked):not(.empty-cell) { background: rgba(245,166,35,.07); }
+.pick-num  { font-size: .65rem; color: var(--muted); margin-bottom: .2rem; }
+.pick-name { font-size: .8rem; font-weight: 600; line-height: 1.2; margin-bottom: .25rem; }
+.pick-meta { display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; }
+.pick-team { font-size: .65rem; color: var(--muted); }
+.pick-bye  { font-size: .65rem; color: var(--muted); }
+.snake-arrow {
+  position: absolute; top: .3rem; right: .35rem;
+  font-size: .65rem; color: var(--dimmer);
+}
+.drafter-chip {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0; margin-right: .25rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESEARCH TAB
+═══════════════════════════════════════════════════ */
+.research-controls {
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem;
+}
+.filter-btn {
+  background: var(--turf); border: 1px solid var(--line);
+  color: var(--muted); font-family: 'Oswald', sans-serif; font-size: .82rem;
+  letter-spacing: .05em; padding: .35rem .75rem; border-radius: 20px;
+  cursor: pointer; transition: all .15s; min-height: 32px;
+}
+.filter-btn:hover  { border-color: var(--amber); color: var(--white); }
+.filter-btn.active { background: rgba(245,166,35,.15); border-color: var(--amber); color: var(--amber); }
+.toggle-btn {
+  margin-left: auto; background: var(--turf); border: 1px solid var(--line);
+  color: var(--muted); font-family: 'Inter', sans-serif; font-size: .8rem;
+  padding: .35rem .75rem; border-radius: var(--radius); cursor: pointer; transition: all .15s; min-height: 32px;
+}
+.toggle-btn.on { border-color: rgba(239,68,68,.5); color: var(--danger); background: rgba(239,68,68,.08); }
+.player-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .5rem;
+}
+.player-card {
+  background: var(--turf); border: 1px solid var(--line);
+  border-radius: 6px; padding: .7rem .85rem; cursor: pointer; transition: all .15s;
+}
+.player-card:hover:not(.is-picked) { border-color: rgba(245,166,35,.5); background: rgba(245,166,35,.05); }
+.player-card.is-picked {
+  background: var(--picked-bg); border-color: rgba(224,64,64,.25);
+  cursor: default; opacity: .65;
+}
+.player-card.hide-picked { display: none; }
+.p-rank  { font-size: .65rem; color: var(--muted); margin-bottom: .25rem; }
+.p-name  { font-size: .88rem; font-weight: 600; margin-bottom: .35rem; line-height: 1.2; }
+.p-meta  { display: flex; gap: .4rem; align-items: center; }
+.p-team  { font-size: .7rem; color: var(--muted); }
+.p-bye   { font-size: .7rem; color: var(--muted); }
+.p-picked-label { font-size: .65rem; color: var(--danger); margin-top: .3rem; font-style: italic; }
+.search-box {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(245,166,35,.3);
+  border-radius: var(--radius); padding: .45rem .8rem; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+  width: 200px; transition: border-color .15s; min-height: 36px;
+}
+.search-box:focus { border-color: var(--amber); }
+.search-box::placeholder { color: var(--dimmer); }
+
+/* ═══════════════════════════════════════════════════
+   SELECTION TAB
+═══════════════════════════════════════════════════ */
+.selection-wrap { max-width: 540px; margin: 0 auto; }
+.on-clock-card {
+  background: rgba(245,166,35,.1); border: 1px solid rgba(245,166,35,.4);
+  border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+  text-align: center;
+}
+.clock-label  { font-family: 'Oswald', sans-serif; font-size: .8rem; letter-spacing: .1em; color: var(--muted); margin-bottom: .35rem; }
+.clock-name   { font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--amber); letter-spacing: .05em; }
+.clock-pick   { font-size: .82rem; color: var(--muted); margin-top: .25rem; }
+.typeahead-wrap { position: relative; margin-bottom: 1rem; }
+.typeahead-input {
+  width: 100%; background: rgba(255,255,255,.07); border: 1px solid rgba(245,166,35,.3);
+  border-radius: var(--radius); padding: .65rem 1rem; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 16px; outline: none;
+  transition: border-color .15s; min-height: 48px;
+}
+.typeahead-input:focus { border-color: var(--amber); }
+.typeahead-input::placeholder { color: var(--dimmer); }
+.suggestion-list {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 3px;
+  background: var(--panel); border: 1px solid rgba(245,166,35,.3);
+  border-radius: var(--radius); max-height: 280px; overflow-y: auto; z-index: 300;
+  display: none;
+}
+.suggestion-list.open { display: block; }
+.suggestion-item {
+  padding: .55rem 1rem; cursor: pointer; display: flex;
+  align-items: center; gap: .5rem; transition: background .1s;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover, .suggestion-item.active { background: rgba(245,166,35,.1); }
+.suggestion-item .sug-name { font-size: .88rem; flex: 1; }
+.suggestion-item .sug-meta { font-size: .7rem; color: var(--muted); }
+.queued-section { margin-bottom: 1.5rem; }
+.queued-title   { font-family: 'Oswald', sans-serif; font-size: .85rem; color: var(--muted); letter-spacing: .08em; margin-bottom: .5rem; }
+.queued-player  {
+  background: var(--turf); border: 1px solid var(--line);
+  border-radius: 6px; padding: .65rem 1rem; margin-bottom: .5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+}
+.queued-info { flex: 1; }
+.queued-name { font-weight: 600; font-size: .9rem; }
+.queued-meta { font-size: .72rem; color: var(--muted); margin-top: .15rem; }
+.not-on-clock { opacity: .5; text-align: center; font-size: .85rem; color: var(--muted); padding: 1.5rem; font-style: italic; }
+
+/* ═══════════════════════════════════════════════════
+   ADMIN TAB
+═══════════════════════════════════════════════════ */
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+@media(max-width:640px) { .admin-grid { grid-template-columns: 1fr; } }
+.admin-card {
+  background: var(--turf); border: 1px solid var(--line);
+  border-radius: 8px; padding: 1.25rem 1.5rem;
+}
+.admin-card-title {
+  font-family: 'Oswald', sans-serif; font-size: .9rem; letter-spacing: .08em;
+  color: var(--amber); margin-bottom: 1rem; text-transform: uppercase;
+}
+.admin-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .75rem; flex-wrap: wrap; }
+.admin-input {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(245,166,35,.3);
+  border-radius: var(--radius); padding: .4rem .75rem; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+  flex: 1; min-width: 80px; min-height: 36px; transition: border-color .15s;
+}
+.admin-input:focus { border-color: var(--amber); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.live   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); }
+.status-dot.idle   { background: var(--muted); }
+.drafter-order-list { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+.drafter-order-item {
+  background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  border-radius: 5px; padding: .5rem .75rem; display: flex; gap: .5rem; align-items: center;
+}
+.drafter-order-item .order-num { font-family: 'Oswald', sans-serif; font-size: .8rem; color: var(--muted); width: 20px; }
+.drafter-order-item .order-name { flex: 1; font-size: .85rem; }
+.feedback { font-size: .78rem; color: var(--muted); margin-top: .4rem; min-height: 1.1em; }
+.edit-pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.edit-pick-cell {
+  background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  border-radius: 4px; padding: .4rem .6rem; cursor: pointer; font-size: .78rem; transition: all .15s;
+}
+.edit-pick-cell:hover { border-color: var(--amber); color: var(--amber); }
+.edit-pick-cell.selected { border-color: var(--amber); background: rgba(245,166,35,.12); color: var(--amber); }
+
+/* ═══════════════════════════════════════════════════
+   POPUP / MODAL
+═══════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; padding: 1.5rem;
+}
+.modal-overlay.hidden { display: none; }
+.modal-box {
+  background: var(--panel); border: 1px solid rgba(245,166,35,.35);
+  border-radius: 10px; padding: 2rem; width: 100%; max-width: 420px;
+}
+.modal-title { font-family: 'Oswald', sans-serif; font-size: 1.3rem; color: var(--amber); letter-spacing: .06em; margin-bottom: .5rem; }
+.modal-body  { font-size: .9rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.55; }
+.modal-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+.modal-player-info { background: rgba(255,255,255,.04); border-radius: 6px; padding: .85rem 1rem; margin-bottom: 1.5rem; }
+.modal-player-name { font-weight: 600; font-size: 1.05rem; margin-bottom: .35rem; }
+.modal-player-meta { display: flex; gap: .5rem; align-items: center; }
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════ */
+@media(max-width:600px) {
+  .page-content { padding: 1rem .85rem; }
+  .player-grid  { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .nav-brand    { font-size: 1rem; }
+  .login-card   { padding: 2rem 1.25rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOADING
+══════════════════════════════════════════════ -->
+<div id="loading-overlay">
+  <div class="loading-logo">🏈 DRAFT HQ</div>
+  <div class="loading-sub">2026 Fantasy Football</div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════════════ -->
+<div id="page-login" class="page">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-helmet">🏈</div>
+      <div class="login-title">DRAFT HQ</div>
+      <div class="login-sub">2026 Fantasy Football Season</div>
+      <label class="form-label">Your Name</label>
+      <input id="login-name" class="form-input" type="text" placeholder="Enter your name" autocomplete="given-name" maxlength="32">
+      <button class="btn-primary" onclick="doLogin()">ENTER DRAFT ROOM</button>
+      <div class="form-error" id="login-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════ -->
+<div id="page-app" class="page">
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-brand">DRAFT<span>HQ</span></div>
+    <div class="nav-links">
+      <button class="nav-btn active" onclick="showTab('board')"   id="tab-board">BOARD</button>
+      <button class="nav-btn"        onclick="showTab('research')" id="tab-research">RESEARCH</button>
+      <button class="nav-btn"        onclick="showTab('pick')"     id="tab-pick">MY PICK</button>
+      <button class="nav-btn"        onclick="showTab('admin')"    id="tab-admin" style="display:none">ADMIN</button>
+    </div>
+    <div class="nav-right">
+      <div class="nav-user" id="nav-user-label"></div>
+      <button class="btn-sm" onclick="doLogout()" style="font-size:.7rem;padding:.25rem .55rem">LEAVE</button>
+    </div>
+  </nav>
+
+  <!-- ON-CLOCK BANNER -->
+  <div id="pick-banner" class="pick-now-banner" style="display:none"></div>
+
+  <!-- BOARD TAB -->
+  <div id="tab-content-board" class="page-content">
+    <div class="board-controls">
+      <div class="section-title">DRAFT BOARD</div>
+      <div id="board-status" style="font-size:.82rem;color:var(--muted);margin-left:.5rem"></div>
+    </div>
+    <!-- Join Section -->
+    <div class="join-section disabled" id="join-section">
+      <div>
+        <div class="join-label">DRAFT STATUS</div>
+        <div class="join-name-display" id="join-status-text">Waiting for admin to open draft</div>
+      </div>
+      <div id="join-btn-wrap"></div>
+    </div>
+    <!-- Board -->
+    <div class="board-wrap">
+      <div id="board-table-wrap">
+        <div style="color:var(--muted);font-style:italic;font-size:.9rem">Admin must set up draft to see board.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESEARCH TAB -->
+  <div id="tab-content-research" class="page-content" style="display:none">
+    <div class="research-controls">
+      <div class="section-title" style="margin-bottom:0">PLAYERS</div>
+      <input id="research-search" class="search-box" type="text" placeholder="Search…" oninput="filterResearch()">
+      <button class="filter-btn active" onclick="setResearchPos('ALL')" id="pos-ALL">ALL</button>
+      <button class="filter-btn" onclick="setResearchPos('QB')"  id="pos-QB">QB</button>
+      <button class="filter-btn" onclick="setResearchPos('RB')"  id="pos-RB">RB</button>
+      <button class="filter-btn" onclick="setResearchPos('WR')"  id="pos-WR">WR</button>
+      <button class="filter-btn" onclick="setResearchPos('TE')"  id="pos-TE">TE</button>
+      <button class="filter-btn" onclick="setResearchPos('K')"   id="pos-K">K</button>
+      <button class="filter-btn" onclick="setResearchPos('DST')" id="pos-DST">DST</button>
+      <button class="toggle-btn" id="hide-picked-btn" onclick="toggleHidePicked()">HIDE PICKED</button>
+    </div>
+    <div class="player-grid" id="research-grid"></div>
+  </div>
+
+  <!-- SELECTION (MY PICK) TAB -->
+  <div id="tab-content-pick" class="page-content" style="display:none">
+    <div class="selection-wrap">
+      <div id="pick-tab-not-on-clock" class="not-on-clock">
+        Not your pick yet. Hang tight.
+      </div>
+      <div id="pick-tab-on-clock" style="display:none">
+        <div class="on-clock-card">
+          <div class="clock-label">ON THE CLOCK</div>
+          <div class="clock-name" id="on-clock-name-display"></div>
+          <div class="clock-pick" id="on-clock-pick-display"></div>
+        </div>
+        <!-- Queued from research -->
+        <div class="queued-section" id="queued-section" style="display:none">
+          <div class="queued-title">QUEUED FROM RESEARCH</div>
+          <div id="queued-player-wrap"></div>
+        </div>
+        <!-- Typeahead -->
+        <div class="section-title" style="margin-bottom:.5rem;font-size:1rem">SELECT A PLAYER</div>
+        <div class="typeahead-wrap">
+          <input id="pick-search" class="typeahead-input" type="text" placeholder="Type player name…"
+            oninput="filterPickSuggestions()" onkeydown="pickKeydown(event)" autocomplete="off">
+          <div class="suggestion-list" id="pick-suggestions"></div>
+        </div>
+        <div style="margin-bottom:1rem">
+          <button class="btn-sm green" onclick="openWriteInModal()">+ WRITE-IN (NOT IN LIST)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN TAB -->
+  <div id="tab-content-admin" class="page-content" style="display:none">
+    <div class="section-title">ADMIN PANEL</div>
+    <div class="admin-grid">
+
+      <!-- Draft Setup -->
+      <div class="admin-card">
+        <div class="admin-card-title">⚙ Draft Setup</div>
+        <div class="admin-row">
+          <label style="font-size:.78rem;color:var(--muted);width:120px">Drafters (2–16)</label>
+          <input id="admin-num-drafters" class="admin-input" type="number" min="2" max="16" value="10" style="width:80px;flex:none">
+        </div>
+        <div class="admin-row">
+          <label style="font-size:.78rem;color:var(--muted);width:120px">Rounds</label>
+          <input id="admin-rounds" class="admin-input" type="number" min="1" max="25" value="15" style="width:80px;flex:none">
+        </div>
+        <div class="admin-row" style="gap:1rem">
+          <div class="status-dot idle" id="draft-status-dot"></div>
+          <span style="font-size:.82rem;color:var(--muted)" id="draft-status-label">Not started</span>
+        </div>
+        <div class="admin-row">
+          <button class="btn-sm green" onclick="adminStartDraft()">INIT DRAFT</button>
+          <button class="btn-sm danger" onclick="adminReversePick()">↩ REVERSE LAST PICK</button>
+        </div>
+        <div class="feedback" id="fb-setup"></div>
+      </div>
+
+      <!-- Draft Order -->
+      <div class="admin-card">
+        <div class="admin-card-title">📋 Draft Order</div>
+        <div id="admin-order-list" style="margin-bottom:.75rem">
+          <div style="font-size:.8rem;color:var(--muted)">Initialize draft to set order.</div>
+        </div>
+        <div class="admin-row">
+          <button class="btn-sm" onclick="adminRandomizeOrder()">🔀 RANDOMIZE</button>
+          <button class="btn-sm" onclick="adminSaveOrder()">SAVE ORDER</button>
+        </div>
+        <div class="feedback" id="fb-order"></div>
+      </div>
+
+      <!-- Make Pick For -->
+      <div class="admin-card">
+        <div class="admin-card-title">📌 Make Pick For Drafter</div>
+        <div class="admin-row">
+          <select id="admin-pick-for" class="admin-input">
+            <option value="">— Select drafter —</option>
+          </select>
+        </div>
+        <div class="typeahead-wrap" style="margin-bottom:.5rem">
+          <input id="admin-pick-search" class="admin-input" type="text" placeholder="Player name…"
+            oninput="filterAdminPickSugg()" onkeydown="adminPickKeydown(event)" autocomplete="off">
+          <div class="suggestion-list" id="admin-pick-suggestions"></div>
+        </div>
+        <div class="admin-row">
+          <button class="btn-sm green" onclick="adminMakePick()">CONFIRM PICK</button>
+        </div>
+        <div class="feedback" id="fb-pick-for"></div>
+      </div>
+
+      <!-- Edit Pick -->
+      <div class="admin-card">
+        <div class="admin-card-title">✏ Edit Existing Pick</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">Select overall pick # to edit:</div>
+        <div class="edit-pick-grid" id="admin-edit-pick-grid" style="max-height:180px;overflow-y:auto;margin-bottom:.75rem">
+          <div style="font-size:.78rem;color:var(--dimmer)">Draft not started.</div>
+        </div>
+        <div id="admin-edit-selected" style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem"></div>
+        <div class="typeahead-wrap" style="margin-bottom:.5rem">
+          <input id="admin-edit-search" class="admin-input" type="text" placeholder="Replacement player…"
+            oninput="filterAdminEditSugg()" onkeydown="adminEditKeydown(event)" autocomplete="off">
+          <div class="suggestion-list" id="admin-edit-suggestions"></div>
+        </div>
+        <div class="admin-row">
+          <button class="btn-sm" onclick="adminEditPick()">SAVE EDIT</button>
+        </div>
+        <div class="feedback" id="fb-edit"></div>
+      </div>
+
+    </div><!-- /admin-grid -->
+  </div><!-- /admin tab -->
+
+</div><!-- /page-app -->
+
+<!-- ══════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════ -->
+
+<!-- Add to queue from research -->
+<div class="modal-overlay hidden" id="modal-queue">
+  <div class="modal-box">
+    <div class="modal-title">ADD TO QUEUE?</div>
+    <div class="modal-player-info">
+      <div class="modal-player-name" id="modal-queue-name"></div>
+      <div class="modal-player-meta" id="modal-queue-meta"></div>
+    </div>
+    <div class="modal-body">Add this player to your pick selection tab?</div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('modal-queue')">CANCEL</button>
+      <button class="btn-sm green" onclick="confirmQueue()">ADD TO QUEUE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm pick -->
+<div class="modal-overlay hidden" id="modal-confirm-pick">
+  <div class="modal-box">
+    <div class="modal-title">CONFIRM PICK</div>
+    <div class="modal-player-info">
+      <div class="modal-player-name" id="modal-pick-name"></div>
+      <div class="modal-player-meta" id="modal-pick-meta"></div>
+    </div>
+    <div class="modal-body">Submit this pick? This cannot be undone without admin access.</div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('modal-confirm-pick')">CANCEL</button>
+      <button class="btn-sm green" onclick="submitConfirmedPick()">LOCK IT IN 🏈</button>
+    </div>
+  </div>
+</div>
+
+<!-- Write-in -->
+<div class="modal-overlay hidden" id="modal-writein">
+  <div class="modal-box">
+    <div class="modal-title">WRITE-IN PLAYER</div>
+    <div class="modal-body">This player isn't in the rankings list. Enter their name and position to add them as a write-in pick.</div>
+    <label class="form-label">Player Name</label>
+    <input id="writein-name" class="form-input" type="text" placeholder="Full name" maxlength="60">
+    <label class="form-label">Position</label>
+    <select id="writein-pos" class="form-input" style="cursor:pointer">
+      <option value="QB">QB</option><option value="RB">RB</option>
+      <option value="WR" selected>WR</option><option value="TE">TE</option>
+      <option value="K">K</option><option value="DST">DST</option>
+    </select>
+    <div class="modal-actions" style="margin-top:1rem">
+      <button class="btn-sm" onclick="closeModal('modal-writein')">CANCEL</button>
+      <button class="btn-sm green" onclick="confirmWriteIn()">CONTINUE →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin reverse confirm -->
+<div class="modal-overlay hidden" id="modal-reverse">
+  <div class="modal-box">
+    <div class="modal-title">REVERSE LAST PICK?</div>
+    <div class="modal-body" id="modal-reverse-body">This will remove the last pick and move the clock back.</div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('modal-reverse')">CANCEL</button>
+      <button class="btn-sm danger" onclick="confirmReverse()">REVERSE PICK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PLAYER DATA
+══════════════════════════════════════════════ -->
+<script>
+const PLAYER_DATA = [{"rk":1,"name":"Ja'Marr Chase","team":"CIN","pos":"WR","posRank":"WR1","bye":"6"},{"rk":2,"name":"Puka Nacua","team":"LAR","pos":"WR","posRank":"WR1","bye":"11"},{"rk":3,"name":"Bijan Robinson","team":"ATL","pos":"RB","posRank":"RB1","bye":"11"},{"rk":4,"name":"Jahmyr Gibbs","team":"DET","pos":"RB","posRank":"RB1","bye":"6"},{"rk":5,"name":"Jaxon Smith-Njigba","team":"SEA","pos":"WR","posRank":"WR1","bye":"11"},{"rk":6,"name":"Amon-Ra St. Brown","team":"DET","pos":"WR","posRank":"WR1","bye":"6"},{"rk":7,"name":"CeeDee Lamb","team":"DAL","pos":"WR","posRank":"WR1","bye":"14"},{"rk":8,"name":"Christian McCaffrey","team":"SF","pos":"RB","posRank":"RB1","bye":"8"},{"rk":9,"name":"Justin Jefferson","team":"MIN","pos":"WR","posRank":"WR1","bye":"6"},{"rk":10,"name":"Drake London","team":"ATL","pos":"WR","posRank":"WR1","bye":"11"},{"rk":11,"name":"Jonathan Taylor","team":"IND","pos":"RB","posRank":"RB1","bye":"13"},{"rk":12,"name":"A.J. Brown","team":"NE","pos":"WR","posRank":"WR1","bye":"11"},{"rk":13,"name":"Nico Collins","team":"HOU","pos":"WR","posRank":"WR1","bye":"8"},{"rk":14,"name":"Ashton Jeanty","team":"LV","pos":"RB","posRank":"RB1","bye":"13"},{"rk":15,"name":"Trey McBride","team":"ARI","pos":"TE","posRank":"TE1","bye":"14"},{"rk":16,"name":"George Pickens","team":"DAL","pos":"WR","posRank":"WR2","bye":"14"},{"rk":17,"name":"James Cook III","team":"BUF","pos":"RB","posRank":"RB1","bye":"7"},{"rk":18,"name":"Chase Brown","team":"CIN","pos":"RB","posRank":"RB1","bye":"6"},{"rk":19,"name":"De'Von Achane","team":"MIA","pos":"RB","posRank":"RB1","bye":"6"},{"rk":20,"name":"Rashee Rice","team":"KC","pos":"WR","posRank":"WR1","bye":"5"},{"rk":21,"name":"Brock Bowers","team":"LV","pos":"TE","posRank":"TE1","bye":"13"},{"rk":22,"name":"Chris Olave","team":"NO","pos":"WR","posRank":"WR1","bye":"8"},{"rk":23,"name":"Omarion Hampton","team":"LAC","pos":"RB","posRank":"RB1","bye":"7"},{"rk":24,"name":"DeVonta Smith","team":"PHI","pos":"WR","posRank":"WR1","bye":"10"},{"rk":25,"name":"Saquon Barkley","team":"PHI","pos":"RB","posRank":"RB1","bye":"10"},{"rk":26,"name":"Josh Allen","team":"BUF","pos":"QB","posRank":"QB1","bye":"7"},{"rk":27,"name":"Garrett Wilson","team":"NYJ","pos":"WR","posRank":"WR1","bye":"13"},{"rk":28,"name":"Zay Flowers","team":"BAL","pos":"WR","posRank":"WR1","bye":"13"},{"rk":29,"name":"Lamar Jackson","team":"BAL","pos":"QB","posRank":"QB1","bye":"13"},{"rk":30,"name":"Kenneth Walker III","team":"KC","pos":"RB","posRank":"RB1","bye":"5"},{"rk":31,"name":"Tetairoa McMillan","team":"CAR","pos":"WR","posRank":"WR1","bye":"5"},{"rk":32,"name":"Tee Higgins","team":"CIN","pos":"WR","posRank":"WR2","bye":"6"},{"rk":33,"name":"Ladd McConkey","team":"LAC","pos":"WR","posRank":"WR1","bye":"7"},{"rk":34,"name":"Drake Maye","team":"NE","pos":"QB","posRank":"QB1","bye":"11"},{"rk":35,"name":"Jeremiyah Love","team":"ARI","pos":"RB","posRank":"RB1","bye":"14"},{"rk":36,"name":"Jaylen Waddle","team":"DEN","pos":"WR","posRank":"WR1","bye":"10"},{"rk":37,"name":"Colston Loveland","team":"CHI","pos":"TE","posRank":"TE1","bye":"10"},{"rk":38,"name":"Emeka Egbuka","team":"TB","pos":"WR","posRank":"WR1","bye":"10"},{"rk":39,"name":"Derrick Henry","team":"BAL","pos":"RB","posRank":"RB1","bye":"13"},{"rk":40,"name":"Malik Nabers","team":"NYG","pos":"WR","posRank":"WR1","bye":"8"},{"rk":41,"name":"Breece Hall","team":"NYJ","pos":"RB","posRank":"RB1","bye":"13"},{"rk":42,"name":"Kyren Williams","team":"LAR","pos":"RB","posRank":"RB1","bye":"11"},{"rk":43,"name":"Terry McLaurin","team":"WAS","pos":"WR","posRank":"WR1","bye":"7"},{"rk":44,"name":"Joe Burrow","team":"CIN","pos":"QB","posRank":"QB1","bye":"6"},{"rk":45,"name":"Josh Jacobs","team":"GB","pos":"RB","posRank":"RB1","bye":"11"},{"rk":46,"name":"Luther Burden III","team":"CHI","pos":"WR","posRank":"WR1","bye":"10"},{"rk":47,"name":"Javonte Williams","team":"DAL","pos":"RB","posRank":"RB1","bye":"14"},{"rk":48,"name":"Davante Adams","team":"LAR","pos":"WR","posRank":"WR2","bye":"11"},{"rk":49,"name":"Travis Etienne Jr.","team":"NO","pos":"RB","posRank":"RB1","bye":"8"},{"rk":50,"name":"Mike Evans","team":"SF","pos":"WR","posRank":"WR1","bye":"8"},{"rk":51,"name":"Jayden Daniels","team":"WAS","pos":"QB","posRank":"QB1","bye":"7"},{"rk":52,"name":"Cam Skattebo","team":"NYG","pos":"RB","posRank":"RB1","bye":"8"},{"rk":53,"name":"Jameson Williams","team":"DET","pos":"WR","posRank":"WR2","bye":"6"},{"rk":54,"name":"DJ Moore","team":"BUF","pos":"WR","posRank":"WR1","bye":"7"},{"rk":55,"name":"Tyler Warren","team":"IND","pos":"TE","posRank":"TE1","bye":"13"},{"rk":56,"name":"Jalen Hurts","team":"PHI","pos":"QB","posRank":"QB1","bye":"10"},{"rk":57,"name":"Christian Watson","team":"GB","pos":"WR","posRank":"WR1","bye":"11"},{"rk":58,"name":"Bucky Irving","team":"TB","pos":"RB","posRank":"RB1","bye":"10"},{"rk":59,"name":"Rome Odunze","team":"CHI","pos":"WR","posRank":"WR2","bye":"10"},{"rk":60,"name":"Quinshon Judkins","team":"CLE","pos":"RB","posRank":"RB1","bye":"11"},{"rk":61,"name":"TreVeyon Henderson","team":"NE","pos":"RB","posRank":"RB1","bye":"11"},{"rk":62,"name":"D'Andre Swift","team":"CHI","pos":"RB","posRank":"RB1","bye":"10"},{"rk":63,"name":"David Montgomery","team":"HOU","pos":"RB","posRank":"RB1","bye":"8"},{"rk":64,"name":"Carnell Tate","team":"TEN","pos":"WR","posRank":"WR1","bye":"9"},{"rk":65,"name":"Marvin Harrison Jr.","team":"ARI","pos":"WR","posRank":"WR1","bye":"14"},{"rk":66,"name":"Caleb Williams","team":"CHI","pos":"QB","posRank":"QB1","bye":"10"},{"rk":67,"name":"Justin Herbert","team":"LAC","pos":"QB","posRank":"QB1","bye":"7"},{"rk":68,"name":"Bhayshul Tuten","team":"JAC","pos":"RB","posRank":"RB1","bye":"7"},{"rk":69,"name":"Tucker Kraft","team":"GB","pos":"TE","posRank":"TE1","bye":"11"},{"rk":70,"name":"Jaylen Warren","team":"PIT","pos":"RB","posRank":"RB1","bye":"9"},{"rk":71,"name":"Harold Fannin Jr.","team":"CLE","pos":"TE","posRank":"TE1","bye":"11"},{"rk":72,"name":"DK Metcalf","team":"PIT","pos":"WR","posRank":"WR1","bye":"9"},{"rk":73,"name":"Jadarian Price","team":"SEA","pos":"RB","posRank":"RB1","bye":"11"},{"rk":74,"name":"Dak Prescott","team":"DAL","pos":"QB","posRank":"QB1","bye":"14"},{"rk":75,"name":"Trevor Lawrence","team":"JAC","pos":"QB","posRank":"QB1","bye":"7"},{"rk":76,"name":"Courtland Sutton","team":"DEN","pos":"WR","posRank":"WR2","bye":"10"},{"rk":77,"name":"Alec Pierce","team":"IND","pos":"WR","posRank":"WR1","bye":"13"},{"rk":78,"name":"Chris Godwin Jr.","team":"TB","pos":"WR","posRank":"WR2","bye":"10"},{"rk":79,"name":"Brian Thomas Jr.","team":"JAC","pos":"WR","posRank":"WR1","bye":"7"},{"rk":80,"name":"Kyle Pitts Sr.","team":"ATL","pos":"TE","posRank":"TE1","bye":"11"},{"rk":81,"name":"Rhamondre Stevenson","team":"NE","pos":"RB","posRank":"RB2","bye":"11"},{"rk":82,"name":"Tony Pollard","team":"TEN","pos":"RB","posRank":"RB1","bye":"9"},{"rk":83,"name":"Michael Pittman Jr.","team":"PIT","pos":"WR","posRank":"WR2","bye":"9"},{"rk":84,"name":"Chuba Hubbard","team":"CAR","pos":"RB","posRank":"RB1","bye":"5"},{"rk":85,"name":"Sam LaPorta","team":"DET","pos":"TE","posRank":"TE1","bye":"6"},{"rk":86,"name":"Parker Washington","team":"JAC","pos":"WR","posRank":"WR2","bye":"7"},{"rk":87,"name":"Jordyn Tyson","team":"NO","pos":"WR","posRank":"WR2","bye":"8"},{"rk":88,"name":"Rico Dowdle","team":"PIT","pos":"RB","posRank":"RB2","bye":"9"},{"rk":89,"name":"Wan'Dale Robinson","team":"TEN","pos":"WR","posRank":"WR2","bye":"9"},{"rk":90,"name":"Michael Wilson","team":"ARI","pos":"WR","posRank":"WR2","bye":"14"},{"rk":91,"name":"RJ Harvey","team":"DEN","pos":"RB","posRank":"RB1","bye":"10"},{"rk":92,"name":"Jaxson Dart","team":"NYG","pos":"QB","posRank":"QB1","bye":"8"},{"rk":93,"name":"Brock Purdy","team":"SF","pos":"QB","posRank":"QB1","bye":"8"},{"rk":94,"name":"Josh Downs","team":"IND","pos":"WR","posRank":"WR2","bye":"13"},{"rk":95,"name":"Ricky Pearsall","team":"SF","pos":"WR","posRank":"WR2","bye":"8"},{"rk":96,"name":"Jakobi Meyers","team":"JAC","pos":"WR","posRank":"WR3","bye":"7"},{"rk":97,"name":"Kenny Gainwell","team":"TB","pos":"RB","posRank":"RB2","bye":"10"},{"rk":98,"name":"Travis Kelce","team":"KC","pos":"TE","posRank":"TE1","bye":"5"},{"rk":99,"name":"Makai Lemon","team":"PHI","pos":"WR","posRank":"WR2","bye":"10"},{"rk":100,"name":"Quentin Johnston","team":"LAC","pos":"WR","posRank":"WR2","bye":"7"},{"rk":101,"name":"Kyle Monangai","team":"CHI","pos":"RB","posRank":"RB2","bye":"10"},{"rk":102,"name":"Patrick Mahomes II","team":"KC","pos":"QB","posRank":"QB1","bye":"5"},{"rk":103,"name":"Bo Nix","team":"DEN","pos":"QB","posRank":"QB1","bye":"10"},{"rk":104,"name":"George Kittle","team":"SF","pos":"TE","posRank":"TE1","bye":"8"},{"rk":105,"name":"Jordan Addison","team":"MIN","pos":"WR","posRank":"WR2","bye":"6"},{"rk":106,"name":"J.K. Dobbins","team":"DEN","pos":"RB","posRank":"RB2","bye":"10"},{"rk":107,"name":"Matthew Stafford","team":"LAR","pos":"QB","posRank":"QB1","bye":"11"},{"rk":108,"name":"Rachaad White","team":"WAS","pos":"RB","posRank":"RB1","bye":"7"},{"rk":109,"name":"Jake Ferguson","team":"DAL","pos":"TE","posRank":"TE1","bye":"14"},{"rk":110,"name":"Blake Corum","team":"LAR","pos":"RB","posRank":"RB2","bye":"11"},{"rk":111,"name":"Jared Goff","team":"DET","pos":"QB","posRank":"QB1","bye":"6"},{"rk":112,"name":"Aaron Jones Sr.","team":"MIN","pos":"RB","posRank":"RB1","bye":"6"},{"rk":113,"name":"Jayden Reed","team":"GB","pos":"WR","posRank":"WR2","bye":"11"},{"rk":114,"name":"Kyler Murray","team":"MIN","pos":"QB","posRank":"QB1","bye":"6"},{"rk":115,"name":"Dalton Kincaid","team":"BUF","pos":"TE","posRank":"TE1","bye":"7"},{"rk":116,"name":"Jordan Love","team":"GB","pos":"QB","posRank":"QB1","bye":"11"},{"rk":117,"name":"Baker Mayfield","team":"TB","pos":"QB","posRank":"QB1","bye":"10"},{"rk":118,"name":"Isaiah Likely","team":"NYG","pos":"TE","posRank":"TE1","bye":"8"},{"rk":119,"name":"Jonathon Brooks","team":"CAR","pos":"RB","posRank":"RB2","bye":"5"},{"rk":120,"name":"Khalil Shakir","team":"BUF","pos":"WR","posRank":"WR2","bye":"7"},{"rk":121,"name":"Jayden Higgins","team":"HOU","pos":"WR","posRank":"WR2","bye":"8"},{"rk":122,"name":"Dallas Goedert","team":"PHI","pos":"TE","posRank":"TE1","bye":"10"},{"rk":123,"name":"Tyler Shough","team":"NO","pos":"QB","posRank":"QB1","bye":"8"},{"rk":124,"name":"Xavier Worthy","team":"KC","pos":"WR","posRank":"WR2","bye":"5"},{"rk":125,"name":"Jacory Croskey-Merritt","team":"WAS","pos":"RB","posRank":"RB2","bye":"7"},{"rk":126,"name":"Jordan Mason","team":"MIN","pos":"RB","posRank":"RB2","bye":"6"},{"rk":127,"name":"Mark Andrews","team":"BAL","pos":"TE","posRank":"TE1","bye":"13"},{"rk":128,"name":"Jalen Coker","team":"CAR","pos":"WR","posRank":"WR2","bye":"5"},{"rk":129,"name":"Romeo Doubs","team":"NE","pos":"WR","posRank":"WR2","bye":"11"},{"rk":130,"name":"Tyrone Tracy Jr.","team":"NYG","pos":"RB","posRank":"RB2","bye":"8"},{"rk":131,"name":"Malik Willis","team":"MIA","pos":"QB","posRank":"QB1","bye":"6"},{"rk":132,"name":"Matthew Golden","team":"GB","pos":"WR","posRank":"WR3","bye":"11"},{"rk":133,"name":"Woody Marks","team":"HOU","pos":"RB","posRank":"RB2","bye":"8"},{"rk":134,"name":"KC Concepcion","team":"CLE","pos":"WR","posRank":"WR1","bye":"11"},{"rk":135,"name":"C.J. Stroud","team":"HOU","pos":"QB","posRank":"QB1","bye":"8"},{"rk":136,"name":"Sam Darnold","team":"SEA","pos":"QB","posRank":"QB1","bye":"11"},{"rk":137,"name":"Tyler Allgeier","team":"ARI","pos":"RB","posRank":"RB2","bye":"14"},{"rk":138,"name":"Tyjae Spears","team":"TEN","pos":"RB","posRank":"RB2","bye":"9"},{"rk":139,"name":"Chris Rodriguez Jr.","team":"JAC","pos":"RB","posRank":"RB2","bye":"7"},{"rk":140,"name":"Dylan Sampson","team":"CLE","pos":"RB","posRank":"RB2","bye":"11"},{"rk":141,"name":"Zach Charbonnet","team":"SEA","pos":"RB","posRank":"RB2","bye":"11"},{"rk":142,"name":"Alvin Kamara","team":"NO","pos":"RB","posRank":"RB2","bye":"8"},{"rk":143,"name":"Juwan Johnson","team":"NO","pos":"TE","posRank":"TE1","bye":"8"},{"rk":144,"name":"Isiah Pacheco","team":"DET","pos":"RB","posRank":"RB2","bye":"6"},{"rk":145,"name":"Rashid Shaheed","team":"SEA","pos":"WR","posRank":"WR2","bye":"11"},{"rk":146,"name":"Brenton Strange","team":"JAC","pos":"TE","posRank":"TE1","bye":"7"},{"rk":147,"name":"Cam Ward","team":"TEN","pos":"QB","posRank":"QB1","bye":"9"},{"rk":148,"name":"Chig Okonkwo","team":"WAS","pos":"TE","posRank":"TE1","bye":"7"},{"rk":149,"name":"Jauan Jennings","team":"MIN","pos":"WR","posRank":"WR3","bye":"6"},{"rk":150,"name":"Jerry Jeudy","team":"CLE","pos":"WR","posRank":"WR2","bye":"11"},{"rk":151,"name":"Denzel Boston","team":"CLE","pos":"WR","posRank":"WR3","bye":"11"},{"rk":152,"name":"Daniel Jones","team":"IND","pos":"QB","posRank":"QB1","bye":"13"},{"rk":153,"name":"Bryce Young","team":"CAR","pos":"QB","posRank":"QB1","bye":"5"},{"rk":154,"name":"Hunter Henry","team":"NE","pos":"TE","posRank":"TE1","bye":"11"},{"rk":155,"name":"Adonai Mitchell","team":"NYJ","pos":"WR","posRank":"WR2","bye":"13"},{"rk":156,"name":"Oronde Gadsden II","team":"LAC","pos":"TE","posRank":"TE1","bye":"7"},{"rk":157,"name":"Omar Cooper Jr.","team":"NYJ","pos":"WR","posRank":"WR3","bye":"13"},{"rk":158,"name":"Keaton Mitchell","team":"LAC","pos":"RB","posRank":"RB2","bye":"7"},{"rk":159,"name":"Jonah Coleman","team":"DEN","pos":"RB","posRank":"RB3","bye":"10"},{"rk":160,"name":"Houston Texans","team":"HOU","pos":"DST","posRank":"DST1","bye":"8"},{"rk":161,"name":"Jalen McMillan","team":"TB","pos":"WR","posRank":"WR3","bye":"10"},{"rk":162,"name":"Brian Robinson Jr.","team":"ATL","pos":"RB","posRank":"RB2","bye":"11"},{"rk":163,"name":"Tank Bigsby","team":"PHI","pos":"RB","posRank":"RB2","bye":"10"},{"rk":164,"name":"Travis Hunter","team":"JAC","pos":"WR","posRank":"WR4","bye":"7"},{"rk":165,"name":"Tre Tucker","team":"LV","pos":"WR","posRank":"WR1","bye":"13"},{"rk":166,"name":"Denver Broncos","team":"DEN","pos":"DST","posRank":"DST1","bye":"10"},{"rk":167,"name":"Braelon Allen","team":"NYJ","pos":"RB","posRank":"RB2","bye":"13"},{"rk":168,"name":"Dalton Schultz","team":"HOU","pos":"TE","posRank":"TE1","bye":"8"},{"rk":169,"name":"Tre' Harris","team":"LAC","pos":"WR","posRank":"WR3","bye":"7"},{"rk":170,"name":"Seattle Seahawks","team":"SEA","pos":"DST","posRank":"DST1","bye":"11"},{"rk":171,"name":"Los Angeles Rams","team":"LAR","pos":"DST","posRank":"DST1","bye":"11"},{"rk":172,"name":"Philadelphia Eagles","team":"PHI","pos":"DST","posRank":"DST1","bye":"10"},{"rk":173,"name":"Stefon Diggs","team":"FA","pos":"WR","posRank":"WR1","bye":"-"},{"rk":174,"name":"Ryan Flournoy","team":"DAL","pos":"WR","posRank":"WR3","bye":"14"},{"rk":175,"name":"T.J. Hockenson","team":"MIN","pos":"TE","posRank":"TE1","bye":"6"},{"rk":176,"name":"James Conner","team":"ARI","pos":"RB","posRank":"RB3","bye":"14"},{"rk":177,"name":"Troy Franklin","team":"DEN","pos":"WR","posRank":"WR3","bye":"10"},{"rk":178,"name":"Jaylin Noel","team":"HOU","pos":"WR","posRank":"WR3","bye":"8"},{"rk":179,"name":"Jacoby Brissett","team":"ARI","pos":"QB","posRank":"QB1","bye":"14"},{"rk":180,"name":"Brandon Aubrey","team":"DAL","pos":"K","posRank":"K1","bye":"14"},{"rk":181,"name":"Pittsburgh Steelers","team":"PIT","pos":"DST","posRank":"DST1","bye":"9"},{"rk":182,"name":"Kayshon Boutte","team":"NE","pos":"WR","posRank":"WR3","bye":"11"},{"rk":183,"name":"Minnesota Vikings","team":"MIN","pos":"DST","posRank":"DST1","bye":"6"},{"rk":184,"name":"Jacksonville Jaguars","team":"JAC","pos":"DST","posRank":"DST1","bye":"7"},{"rk":185,"name":"New England Patriots","team":"NE","pos":"DST","posRank":"DST1","bye":"11"},{"rk":186,"name":"Calvin Ridley","team":"TEN","pos":"WR","posRank":"WR3","bye":"9"},{"rk":187,"name":"Isaac TeSlaa","team":"DET","pos":"WR","posRank":"WR3","bye":"6"},{"rk":188,"name":"Ka'imi Fairbairn","team":"HOU","pos":"K","posRank":"K1","bye":"8"},{"rk":189,"name":"Cameron Dicker","team":"LAC","pos":"K","posRank":"K1","bye":"7"},{"rk":190,"name":"Ray Davis","team":"BUF","pos":"RB","posRank":"RB2","bye":"7"},{"rk":191,"name":"Los Angeles Chargers","team":"LAC","pos":"DST","posRank":"DST1","bye":"7"},{"rk":192,"name":"AJ Barner","team":"SEA","pos":"TE","posRank":"TE1","bye":"11"},{"rk":193,"name":"Kimani Vidal","team":"LAC","pos":"RB","posRank":"RB3","bye":"7"},{"rk":194,"name":"Deebo Samuel Sr.","team":"FA","pos":"WR","posRank":"WR2","bye":"-"},{"rk":195,"name":"Cam Little","team":"JAC","pos":"K","posRank":"K1","bye":"7"},{"rk":196,"name":"Pat Bryant","team":"DEN","pos":"WR","posRank":"WR4","bye":"10"},{"rk":197,"name":"Jalen Nailor","team":"LV","pos":"WR","posRank":"WR2","bye":"13"},{"rk":198,"name":"Dontayvion Wicks","team":"PHI","pos":"WR","posRank":"WR3","bye":"10"},{"rk":199,"name":"Kenyon Sadiq","team":"NYJ","pos":"TE","posRank":"TE1","bye":"13"},{"rk":200,"name":"Jason Myers","team":"SEA","pos":"K","posRank":"K1","bye":"11"},{"rk":201,"name":"Emmett Johnson","team":"KC","pos":"RB","posRank":"RB2","bye":"5"},{"rk":202,"name":"Darnell Mooney","team":"NYG","pos":"WR","posRank":"WR2","bye":"8"},{"rk":203,"name":"Emanuel Wilson","team":"SEA","pos":"RB","posRank":"RB3","bye":"11"},{"rk":204,"name":"Gunnar Helm","team":"TEN","pos":"TE","posRank":"TE1","bye":"9"},{"rk":205,"name":"Baltimore Ravens","team":"BAL","pos":"DST","posRank":"DST1","bye":"13"},{"rk":206,"name":"Sean Tucker","team":"TB","pos":"RB","posRank":"RB3","bye":"10"},{"rk":207,"name":"Malik Washington","team":"MIA","pos":"WR","posRank":"WR1","bye":"6"},{"rk":208,"name":"Antonio Williams","team":"WAS","pos":"WR","posRank":"WR2","bye":"7"},{"rk":209,"name":"Tyler Loop","team":"BAL","pos":"K","posRank":"K1","bye":"13"},{"rk":210,"name":"Eddy Pineiro","team":"SF","pos":"K","posRank":"K1","bye":"8"},{"rk":211,"name":"Green Bay Packers","team":"GB","pos":"DST","posRank":"DST1","bye":"11"},{"rk":212,"name":"Nicholas Singleton","team":"TEN","pos":"RB","posRank":"RB3","bye":"9"},{"rk":213,"name":"Mike Washington Jr.","team":"LV","pos":"RB","posRank":"RB2","bye":"13"},{"rk":214,"name":"Kansas City Chiefs","team":"KC","pos":"DST","posRank":"DST1","bye":"5"},{"rk":215,"name":"Detroit Lions","team":"DET","pos":"DST","posRank":"DST1","bye":"6"},{"rk":216,"name":"Cairo Santos","team":"CHI","pos":"K","posRank":"K1","bye":"10"},{"rk":217,"name":"Evan McPherson","team":"CIN","pos":"K","posRank":"K1","bye":"6"},{"rk":218,"name":"Cooper Kupp","team":"SEA","pos":"WR","posRank":"WR3","bye":"11"},{"rk":219,"name":"Andy Borregales","team":"NE","pos":"K","posRank":"K1","bye":"11"},{"rk":220,"name":"Geno Smith","team":"NYJ","pos":"QB","posRank":"QB1","bye":"13"},{"rk":221,"name":"Buffalo Bills","team":"BUF","pos":"DST","posRank":"DST1","bye":"7"},{"rk":222,"name":"Jake Bates","team":"DET","pos":"K","posRank":"K1","bye":"6"},{"rk":223,"name":"Rashod Bateman","team":"BAL","pos":"WR","posRank":"WR2","bye":"13"},{"rk":224,"name":"Tank Dell","team":"HOU","pos":"WR","posRank":"WR4","bye":"8"},{"rk":225,"name":"De'Zhaun Stribling","team":"SF","pos":"WR","posRank":"WR3","bye":"8"},{"rk":226,"name":"Aaron Rodgers","team":"PIT","pos":"QB","posRank":"QB1","bye":"9"},{"rk":227,"name":"Kaytron Allen","team":"WAS","pos":"RB","posRank":"RB3","bye":"7"},{"rk":228,"name":"Chimere Dike","team":"TEN","pos":"WR","posRank":"WR4","bye":"9"},{"rk":229,"name":"Chase McLaughlin","team":"TB","pos":"K","posRank":"K1","bye":"10"},{"rk":230,"name":"Jaylen Wright","team":"MIA","pos":"RB","posRank":"RB2","bye":"6"},{"rk":231,"name":"Cleveland Browns","team":"CLE","pos":"DST","posRank":"DST1","bye":"11"},{"rk":232,"name":"Pat Freiermuth","team":"PIT","pos":"TE","posRank":"TE1","bye":"9"},{"rk":233,"name":"Harrison Mevis","team":"LAR","pos":"K","posRank":"K1","bye":"11"},{"rk":234,"name":"Zachariah Branch","team":"ATL","pos":"WR","posRank":"WR2","bye":"11"},{"rk":235,"name":"Cade Otton","team":"TB","pos":"TE","posRank":"TE1","bye":"10"},{"rk":236,"name":"Brandon Aiyuk","team":"SF","pos":"WR","posRank":"WR4","bye":"8"},{"rk":237,"name":"Jack Bech","team":"LV","pos":"WR","posRank":"WR3","bye":"13"},{"rk":238,"name":"Ollie Gordon II","team":"MIA","pos":"RB","posRank":"RB3","bye":"6"},{"rk":239,"name":"Terrance Ferguson","team":"LAR","pos":"TE","posRank":"TE1","bye":"11"},{"rk":240,"name":"Elic Ayomanor","team":"TEN","pos":"WR","posRank":"WR5","bye":"9"},{"rk":241,"name":"Germie Bernard","team":"PIT","pos":"WR","posRank":"WR3","bye":"9"},{"rk":242,"name":"MarShawn Lloyd","team":"GB","pos":"RB","posRank":"RB2","bye":"11"},{"rk":243,"name":"Keon Coleman","team":"BUF","pos":"WR","posRank":"WR3","bye":"7"},{"rk":244,"name":"Ted Hurst III","team":"TB","pos":"WR","posRank":"WR4","bye":"10"},{"rk":245,"name":"David Njoku","team":"LAC","pos":"TE","posRank":"TE2","bye":"7"},{"rk":246,"name":"Evan Engram","team":"DEN","pos":"TE","posRank":"TE1","bye":"10"},{"rk":247,"name":"Fernando Mendoza","team":"LV","pos":"QB","posRank":"QB1","bye":"13"},{"rk":248,"name":"Chris Boswell","team":"PIT","pos":"K","posRank":"K1","bye":"9"},{"rk":249,"name":"Harrison Butker","team":"KC","pos":"K","posRank":"K1","bye":"5"},{"rk":250,"name":"Justice Hill","team":"BAL","pos":"RB","posRank":"RB2","bye":"13"},{"rk":251,"name":"Colby Parkinson","team":"LAR","pos":"TE","posRank":"TE2","bye":"11"},{"rk":252,"name":"Jaydon Blue","team":"DAL","pos":"RB","posRank":"RB2","bye":"14"},{"rk":253,"name":"Christian Kirk","team":"SF","pos":"WR","posRank":"WR5","bye":"8"},{"rk":254,"name":"Greg Dulcich","team":"MIA","pos":"TE","posRank":"TE1","bye":"6"},{"rk":255,"name":"Isaiah Davis","team":"NYJ","pos":"RB","posRank":"RB3","bye":"13"},{"rk":256,"name":"Elijah Sarratt","team":"BAL","pos":"WR","posRank":"WR3","bye":"13"},{"rk":257,"name":"Tory Horton","team":"SEA","pos":"WR","posRank":"WR4","bye":"11"},{"rk":258,"name":"Trey Benson","team":"ARI","pos":"RB","posRank":"RB4","bye":"14"},{"rk":259,"name":"Tua Tagovailoa","team":"ATL","pos":"QB","posRank":"QB1","bye":"11"},{"rk":260,"name":"Tyreek Hill","team":"FA","pos":"WR","posRank":"WR3","bye":"-"},{"rk":261,"name":"Malachi Fields","team":"NYG","pos":"WR","posRank":"WR3","bye":"8"},{"rk":262,"name":"Ty Johnson","team":"BUF","pos":"RB","posRank":"RB3","bye":"7"},{"rk":263,"name":"DJ Giddens","team":"IND","pos":"RB","posRank":"RB2","bye":"13"},{"rk":264,"name":"Chris Bell","team":"MIA","pos":"WR","posRank":"WR2","bye":"6"},{"rk":265,"name":"Eli Stowers","team":"PHI","pos":"TE","posRank":"TE2","bye":"10"},{"rk":266,"name":"Darius Slayton","team":"NYG","pos":"WR","posRank":"WR4","bye":"8"},{"rk":267,"name":"Devin Neal","team":"NO","pos":"RB","posRank":"RB3","bye":"8"},{"rk":268,"name":"Marvin Mims Jr.","team":"DEN","pos":"WR","posRank":"WR5","bye":"10"},{"rk":269,"name":"Demond Claiborne","team":"MIN","pos":"RB","posRank":"RB3","bye":"6"},{"rk":270,"name":"Jordan James","team":"SF","pos":"RB","posRank":"RB2","bye":"8"},{"rk":271,"name":"Chris Brooks","team":"GB","pos":"RB","posRank":"RB3","bye":"11"},{"rk":272,"name":"Mason Taylor","team":"NYJ","pos":"TE","posRank":"TE2","bye":"13"},{"rk":273,"name":"George Holani","team":"SEA","pos":"RB","posRank":"RB4","bye":"11"},{"rk":274,"name":"Chris Brazzell II","team":"CAR","pos":"WR","posRank":"WR3","bye":"5"},{"rk":275,"name":"Wil Lutz","team":"DEN","pos":"K","posRank":"K1","bye":"10"},{"rk":276,"name":"LeQuint Allen Jr.","team":"JAC","pos":"RB","posRank":"RB3","bye":"7"},{"rk":277,"name":"Theo Johnson","team":"NYG","pos":"TE","posRank":"TE2","bye":"8"},{"rk":278,"name":"Xavier Legette","team":"CAR","pos":"WR","posRank":"WR4","bye":"5"},{"rk":279,"name":"Michael Penix Jr.","team":"ATL","pos":"QB","posRank":"QB2","bye":"11"},{"rk":280,"name":"Tyquan Thornton","team":"KC","pos":"WR","posRank":"WR3","bye":"5"},{"rk":281,"name":"Samaje Perine","team":"CIN","pos":"RB","posRank":"RB2","bye":"6"},{"rk":282,"name":"Kaleb Johnson","team":"PIT","pos":"RB","posRank":"RB3","bye":"9"},{"rk":283,"name":"Devaughn Vele","team":"NO","pos":"WR","posRank":"WR3","bye":"8"},{"rk":284,"name":"San Francisco 49ers","team":"SF","pos":"DST","posRank":"DST1","bye":"8"},{"rk":285,"name":"Will Reichard","team":"MIN","pos":"K","posRank":"K1","bye":"6"},{"rk":286,"name":"Atlanta Falcons","team":"ATL","pos":"DST","posRank":"DST1","bye":"11"},{"rk":287,"name":"Malik Davis","team":"DAL","pos":"RB","posRank":"RB3","bye":"14"},{"rk":288,"name":"Oscar Delp","team":"NO","pos":"TE","posRank":"TE2","bye":"8"},{"rk":289,"name":"Kyle Williams","team":"NE","pos":"WR","posRank":"WR4","bye":"11"},{"rk":290,"name":"Shedeur Sanders","team":"CLE","pos":"QB","posRank":"QB1","bye":"11"},{"rk":291,"name":"Keenan Allen","team":"LAC","pos":"WR","posRank":"WR4","bye":"7"},{"rk":292,"name":"Hollywood Brown","team":"PHI","pos":"WR","posRank":"WR4","bye":"10"},{"rk":293,"name":"Kendre Miller","team":"NO","pos":"RB","posRank":"RB4","bye":"8"},{"rk":294,"name":"Emari Demercado","team":"KC","pos":"RB","posRank":"RB3","bye":"5"},{"rk":295,"name":"Mack Hollins","team":"NE","pos":"WR","posRank":"WR5","bye":"11"},{"rk":296,"name":"Brashard Smith","team":"KC","pos":"RB","posRank":"RB4","bye":"5"},{"rk":297,"name":"Deshaun Watson","team":"CLE","pos":"QB","posRank":"QB2","bye":"11"},{"rk":298,"name":"Devin Singletary","team":"NYG","pos":"RB","posRank":"RB3","bye":"8"},{"rk":299,"name":"Kaelon Black","team":"SF","pos":"RB","posRank":"RB3","bye":"8"},{"rk":300,"name":"Jerome Ford","team":"WAS","pos":"RB","posRank":"RB4","bye":"7"},{"rk":301,"name":"Kirk Cousins","team":"LV","pos":"QB","posRank":"QB2","bye":"13"},{"rk":302,"name":"Mike Gesicki","team":"CIN","pos":"TE","posRank":"TE1","bye":"6"},{"rk":303,"name":"Isaiah Bond","team":"CLE","pos":"WR","posRank":"WR4","bye":"11"},{"rk":304,"name":"Najee Harris","team":"LAC","pos":"RB","posRank":"RB4","bye":"7"},{"rk":305,"name":"Skyler Bell","team":"BUF","pos":"WR","posRank":"WR4","bye":"7"},{"rk":306,"name":"Trevor Etienne","team":"CAR","pos":"RB","posRank":"RB3","bye":"5"},{"rk":307,"name":"Tahj Brooks","team":"CIN","pos":"RB","posRank":"RB3","bye":"6"},{"rk":308,"name":"Adam Randall","team":"BAL","pos":"RB","posRank":"RB3","bye":"13"},{"rk":309,"name":"Seth McGowan","team":"IND","pos":"RB","posRank":"RB3","bye":"13"},{"rk":310,"name":"New Orleans Saints","team":"NO","pos":"DST","posRank":"DST1","bye":"8"},{"rk":311,"name":"Charlie Smyth","team":"NO","pos":"K","posRank":"K1","bye":"8"},{"rk":312,"name":"Jaleel McLaughlin","team":"DEN","pos":"RB","posRank":"RB4","bye":"10"},{"rk":313,"name":"Isaac Guerendo","team":"SF","pos":"RB","posRank":"RB4","bye":"8"},{"rk":314,"name":"Andrei Iosivas","team":"CIN","pos":"WR","posRank":"WR3","bye":"6"},{"rk":315,"name":"Ja'Kobi Lane","team":"BAL","pos":"WR","posRank":"WR4","bye":"13"},{"rk":316,"name":"Jarquez Hunter","team":"LAR","pos":"RB","posRank":"RB3","bye":"11"},{"rk":317,"name":"Jake Tonges","team":"SF","pos":"TE","posRank":"TE2","bye":"8"},{"rk":318,"name":"Indianapolis Colts","team":"IND","pos":"DST","posRank":"DST1","bye":"13"},{"rk":319,"name":"Audric Estime","team":"NO","pos":"RB","posRank":"RB5","bye":"8"},{"rk":320,"name":"Will Shipley","team":"PHI","pos":"RB","posRank":"RB3","bye":"10"},{"rk":321,"name":"Joe Mixon","team":"FA","pos":"RB","posRank":"RB1","bye":"-"},{"rk":322,"name":"Chicago Bears","team":"CHI","pos":"DST","posRank":"DST1","bye":"10"},{"rk":323,"name":"Darnell Washington","team":"PIT","pos":"TE","posRank":"TE2","bye":"9"},{"rk":324,"name":"Konata Mumpfield","team":"LAR","pos":"WR","posRank":"WR3","bye":"11"},{"rk":325,"name":"Jalen Royals","team":"KC","pos":"WR","posRank":"WR4","bye":"5"},{"rk":326,"name":"Cedric Tillman","team":"CLE","pos":"WR","posRank":"WR5","bye":"11"},{"rk":327,"name":"J.J. McCarthy","team":"MIN","pos":"QB","posRank":"QB2","bye":"6"},{"rk":328,"name":"Luke McCaffrey","team":"WAS","pos":"WR","posRank":"WR3","bye":"7"},{"rk":329,"name":"Calvin Austin III","team":"NYG","pos":"WR","posRank":"WR5","bye":"8"},{"rk":330,"name":"Kareem Hunt","team":"FA","pos":"RB","posRank":"RB2","bye":"-"},{"rk":331,"name":"Tez Johnson","team":"TB","pos":"WR","posRank":"WR5","bye":"10"},{"rk":332,"name":"Jalen Tolbert","team":"MIA","pos":"WR","posRank":"WR3","bye":"6"},{"rk":333,"name":"Joshua Palmer","team":"BUF","pos":"WR","posRank":"WR5","bye":"7"},{"rk":334,"name":"Olamide Zaccheaus","team":"ATL","pos":"WR","posRank":"WR3","bye":"11"},{"rk":335,"name":"Tyler Higbee","team":"LAR","pos":"TE","posRank":"TE3","bye":"11"},{"rk":336,"name":"Caleb Douglas","team":"MIA","pos":"WR","posRank":"WR4","bye":"6"},{"rk":337,"name":"Jahan Dotson","team":"ATL","pos":"WR","posRank":"WR4","bye":"11"},{"rk":338,"name":"DeMario Douglas","team":"NE","pos":"WR","posRank":"WR6","bye":"11"},{"rk":339,"name":"Max Klare","team":"LAR","pos":"TE","posRank":"TE4","bye":"11"},{"rk":340,"name":"Mac Jones","team":"SF","pos":"QB","posRank":"QB2","bye":"8"},{"rk":341,"name":"Michael Mayer","team":"LV","pos":"TE","posRank":"TE2","bye":"13"},{"rk":342,"name":"Elijah Arroyo","team":"SEA","pos":"TE","posRank":"TE2","bye":"11"},{"rk":343,"name":"Carolina Panthers","team":"CAR","pos":"DST","posRank":"DST1","bye":"5"},{"rk":344,"name":"Noah Gray","team":"KC","pos":"TE","posRank":"TE2","bye":"5"},{"rk":345,"name":"Carson Beck","team":"ARI","pos":"QB","posRank":"QB2","bye":"14"},{"rk":346,"name":"Dont'e Thornton Jr.","team":"LV","pos":"WR","posRank":"WR4","bye":"13"},{"rk":347,"name":"Bam Knight","team":"ARI","pos":"RB","posRank":"RB5","bye":"14"},{"rk":348,"name":"Treylon Burks","team":"WAS","pos":"WR","posRank":"WR4","bye":"7"},{"rk":349,"name":"Eli Heidenreich","team":"PIT","pos":"RB","posRank":"RB4","bye":"9"},{"rk":350,"name":"Cole Kmet","team":"CHI","pos":"TE","posRank":"TE2","bye":"10"},{"rk":351,"name":"Ja'Tavion Sanders","team":"CAR","pos":"TE","posRank":"TE1","bye":"5"},{"rk":352,"name":"Kendrick Bourne","team":"ARI","pos":"WR","posRank":"WR3","bye":"14"},{"rk":353,"name":"Justin Fields","team":"KC","pos":"QB","posRank":"QB2","bye":"5"},{"rk":354,"name":"Ty Simpson","team":"LAR","pos":"QB","posRank":"QB2","bye":"11"},{"rk":355,"name":"Xavier Hutchinson","team":"HOU","pos":"WR","posRank":"WR5","bye":"8"},{"rk":356,"name":"Anthony Richardson Sr.","team":"IND","pos":"QB","posRank":"QB2","bye":"13"},{"rk":357,"name":"Bryce Lance","team":"NO","pos":"WR","posRank":"WR4","bye":"8"},{"rk":358,"name":"Brenen Thompson","team":"LAC","pos":"WR","posRank":"WR5","bye":"7"},{"rk":359,"name":"Jake Elliott","team":"PHI","pos":"K","posRank":"K1","bye":"10"},{"rk":360,"name":"Jaylin Lane","team":"WAS","pos":"WR","posRank":"WR5","bye":"7"},{"rk":361,"name":"Dallas Cowboys","team":"DAL","pos":"DST","posRank":"DST1","bye":"14"},{"rk":362,"name":"Michael Carter","team":"TEN","pos":"RB","posRank":"RB4","bye":"9"},{"rk":363,"name":"Raheim Sanders","team":"CLE","pos":"RB","posRank":"RB3","bye":"11"},{"rk":364,"name":"Tutu Atwell","team":"MIA","pos":"WR","posRank":"WR5","bye":"6"},{"rk":365,"name":"New York Giants","team":"NYG","pos":"DST","posRank":"DST1","bye":"8"},{"rk":366,"name":"John Metchie III","team":"CAR","pos":"WR","posRank":"WR5","bye":"5"},{"rk":367,"name":"Dawson Knox","team":"BUF","pos":"TE","posRank":"TE2","bye":"7"},{"rk":368,"name":"Nick Chubb","team":"FA","pos":"RB","posRank":"RB3","bye":"-"},{"rk":369,"name":"Tyler Bass","team":"BUF","pos":"K","posRank":"K1","bye":"7"},{"rk":370,"name":"Jawhar Jordan","team":"HOU","pos":"RB","posRank":"RB3","bye":"8"},{"rk":371,"name":"Zane Gonzalez","team":"MIA","pos":"K","posRank":"K1","bye":"6"},{"rk":372,"name":"Justin Joly","team":"DEN","pos":"TE","posRank":"TE2","bye":"10"},{"rk":373,"name":"J'Mari Taylor","team":"JAC","pos":"RB","posRank":"RB4","bye":"7"},{"rk":374,"name":"Kevin Coleman Jr.","team":"MIA","pos":"WR","posRank":"WR6","bye":"6"},{"rk":375,"name":"Savion Williams","team":"GB","pos":"WR","posRank":"WR4","bye":"11"},{"rk":376,"name":"Erick All Jr.","team":"CIN","pos":"TE","posRank":"TE2","bye":"6"},{"rk":377,"name":"Noah Fant","team":"NO","pos":"TE","posRank":"TE3","bye":"8"},{"rk":378,"name":"Tampa Bay Buccaneers","team":"TB","pos":"DST","posRank":"DST1","bye":"10"},{"rk":379,"name":"Kalif Raymond","team":"CHI","pos":"WR","posRank":"WR3","bye":"10"},{"rk":380,"name":"Cincinnati Bengals","team":"CIN","pos":"DST","posRank":"DST1","bye":"6"},{"rk":381,"name":"KaVontae Turpin","team":"DAL","pos":"WR","posRank":"WR4","bye":"14"},{"rk":382,"name":"Eli Raridon","team":"NE","pos":"TE","posRank":"TE2","bye":"11"},{"rk":383,"name":"Kyle Juszczyk","team":"SF","pos":"RB","posRank":"RB5","bye":"8"},{"rk":384,"name":"Nick Westbrook-Ikhine","team":"IND","pos":"WR","posRank":"WR3","bye":"13"},{"rk":385,"name":"John Bates","team":"WAS","pos":"TE","posRank":"TE2","bye":"7"},{"rk":386,"name":"Tennessee Titans","team":"TEN","pos":"DST","posRank":"DST1","bye":"9"},{"rk":387,"name":"Devontez Walker","team":"BAL","pos":"WR","posRank":"WR5","bye":"13"},{"rk":388,"name":"Zavion Thomas","team":"CHI","pos":"WR","posRank":"WR4","bye":"10"},{"rk":389,"name":"Luke Musgrave","team":"GB","pos":"TE","posRank":"TE2","bye":"11"},{"rk":390,"name":"Dyami Brown","team":"WAS","pos":"WR","posRank":"WR6","bye":"7"},{"rk":391,"name":"Blake Grupe","team":"IND","pos":"K","posRank":"K1","bye":"13"},{"rk":392,"name":"Nick Folk","team":"ATL","pos":"K","posRank":"K1","bye":"11"},{"rk":393,"name":"Cyrus Allen","team":"KC","pos":"WR","posRank":"WR5","bye":"5"},{"rk":394,"name":"Phil Mafah","team":"DAL","pos":"RB","posRank":"RB4","bye":"14"},{"rk":395,"name":"Jordan Whittington","team":"LAR","pos":"WR","posRank":"WR4","bye":"11"},{"rk":396,"name":"Miami Dolphins","team":"MIA","pos":"DST","posRank":"DST1","bye":"6"},{"rk":397,"name":"Ryan Fitzgerald","team":"CAR","pos":"K","posRank":"K1","bye":"5"},{"rk":398,"name":"Dameon Pierce","team":"PHI","pos":"RB","posRank":"RB4","bye":"10"},{"rk":399,"name":"Darren Waller","team":"FA","pos":"TE","posRank":"TE1","bye":"-"},{"rk":400,"name":"Trey Smack","team":"GB","pos":"K","posRank":"K1","bye":"11"},{"rk":401,"name":"Spencer Shrader","team":"IND","pos":"K","posRank":"K2","bye":"13"},{"rk":402,"name":"Joe Flacco","team":"CIN","pos":"QB","posRank":"QB2","bye":"6"},{"rk":403,"name":"Deion Burks","team":"IND","pos":"WR","posRank":"WR4","bye":"13"},{"rk":404,"name":"Joe Milton III","team":"DAL","pos":"QB","posRank":"QB2","bye":"14"},{"rk":405,"name":"Ben Sinnott","team":"WAS","pos":"TE","posRank":"TE3","bye":"7"},{"rk":406,"name":"Ben Sauls","team":"NYG","pos":"K","posRank":"K1","bye":"8"},{"rk":407,"name":"Tommy Myers","team":"FA","pos":"TE","posRank":"TE2","bye":"-"},{"rk":408,"name":"Tommy Tremble","team":"CAR","pos":"TE","posRank":"TE2","bye":"5"},{"rk":409,"name":"Jameis Winston","team":"NYG","pos":"QB","posRank":"QB2","bye":"8"},{"rk":410,"name":"Rasheen Ali","team":"BAL","pos":"RB","posRank":"RB4","bye":"13"},{"rk":411,"name":"Sione Vaki","team":"DET","pos":"RB","posRank":"RB3","bye":"6"},{"rk":412,"name":"Washington Commanders","team":"WAS","pos":"DST","posRank":"DST1","bye":"7"},{"rk":413,"name":"Ashton Dulin","team":"IND","pos":"WR","posRank":"WR5","bye":"13"},{"rk":414,"name":"Austin Ekeler","team":"FA","pos":"RB","posRank":"RB4","bye":"-"},{"rk":415,"name":"Chad Ryland","team":"ARI","pos":"K","posRank":"K1","bye":"14"},{"rk":416,"name":"Greg Dortch","team":"DET","pos":"WR","posRank":"WR4","bye":"6"},{"rk":417,"name":"Marcus Mariota","team":"WAS","pos":"QB","posRank":"QB2","bye":"7"},{"rk":418,"name":"Jam Miller","team":"NE","pos":"RB","posRank":"RB3","bye":"11"},{"rk":419,"name":"Terrell Jennings","team":"NE","pos":"RB","posRank":"RB4","bye":"11"},{"rk":420,"name":"Jonnu Smith","team":"FA","pos":"TE","posRank":"TE3","bye":"-"},{"rk":421,"name":"CJ Daniels","team":"LAR","pos":"WR","posRank":"WR5","bye":"11"},{"rk":422,"name":"Antonio Gibson","team":"FA","pos":"RB","posRank":"RB5","bye":"-"},{"rk":423,"name":"Dylan Laube","team":"LV","pos":"RB","posRank":"RB3","bye":"13"},{"rk":424,"name":"Jeremy McNichols","team":"WAS","pos":"RB","posRank":"RB5","bye":"7"},{"rk":425,"name":"Roschon Johnson","team":"CHI","pos":"RB","posRank":"RB3","bye":"10"},{"rk":426,"name":"Elijah Higgins","team":"ARI","pos":"TE","posRank":"TE2","bye":"14"},{"rk":427,"name":"Colbie Young","team":"CIN","pos":"WR","posRank":"WR4","bye":"6"},{"rk":428,"name":"Zach Ertz","team":"FA","pos":"TE","posRank":"TE4","bye":"-"},{"rk":429,"name":"Joey Slye","team":"TEN","pos":"K","posRank":"K1","bye":"9"},{"rk":430,"name":"Daniel Bellinger","team":"TEN","pos":"TE","posRank":"TE2","bye":"9"},{"rk":431,"name":"DeAndre Hopkins","team":"BAL","pos":"WR","posRank":"WR6","bye":"13"},{"rk":432,"name":"Jake Moody","team":"WAS","pos":"K","posRank":"K1","bye":"7"},{"rk":433,"name":"Jahdae Walker","team":"CHI","pos":"WR","posRank":"WR5","bye":"10"},{"rk":434,"name":"Marquez Valdes-Scantling","team":"DAL","pos":"WR","posRank":"WR5","bye":"14"},{"rk":435,"name":"Malik Benson","team":"LV","pos":"WR","posRank":"WR5","bye":"13"},{"rk":436,"name":"Drew Sample","team":"CIN","pos":"TE","posRank":"TE3","bye":"6"},{"rk":437,"name":"Tyler Lockett","team":"LV","pos":"WR","posRank":"WR6","bye":"13"},{"rk":438,"name":"Charlie Kolar","team":"LAC","pos":"TE","posRank":"TE3","bye":"7"},{"rk":439,"name":"Cade Klubnik","team":"NYJ","pos":"QB","posRank":"QB2","bye":"13"},{"rk":440,"name":"Odell Beckham Jr.","team":"NYG","pos":"WR","posRank":"WR6","bye":"8"},{"rk":441,"name":"Damien Martinez","team":"GB","pos":"RB","posRank":"RB4","bye":"11"},{"rk":442,"name":"Elijah Moore","team":"PHI","pos":"WR","posRank":"WR5","bye":"10"},{"rk":443,"name":"Marlin Klein","team":"HOU","pos":"TE","posRank":"TE2","bye":"8"},{"rk":444,"name":"Hunter Luepke","team":"DAL","pos":"RB","posRank":"RB5","bye":"14"},{"rk":445,"name":"Van Jefferson","team":"WAS","pos":"WR","posRank":"WR7","bye":"7"},{"rk":446,"name":"Gardner Minshew II","team":"ARI","pos":"QB","posRank":"QB3","bye":"14"},{"rk":447,"name":"Luke Schoonmaker","team":"DAL","pos":"TE","posRank":"TE2","bye":"14"},{"rk":448,"name":"Austin Hooper","team":"ATL","pos":"TE","posRank":"TE2","bye":"11"},{"rk":449,"name":"Tim Patrick","team":"NYJ","pos":"WR","posRank":"WR4","bye":"13"},{"rk":450,"name":"Roman Wilson","team":"PIT","pos":"WR","posRank":"WR4","bye":"9"},{"rk":451,"name":"Mitchell Evans","team":"CAR","pos":"TE","posRank":"TE3","bye":"5"},{"rk":452,"name":"Devonte Boyd","team":"FA","pos":"WR","posRank":"WR4","bye":"-"},{"rk":453,"name":"Mitch Tinsley","team":"CIN","pos":"WR","posRank":"WR5","bye":"6"},{"rk":454,"name":"Brandin Cooks","team":"FA","pos":"WR","posRank":"WR5","bye":"-"},{"rk":455,"name":"Brandon McManus","team":"FA","pos":"K","posRank":"K1","bye":"-"},{"rk":456,"name":"Zavier Scott","team":"MIN","pos":"RB","posRank":"RB4","bye":"6"},{"rk":457,"name":"Josh Oliver","team":"MIN","pos":"TE","posRank":"TE2","bye":"6"},{"rk":458,"name":"Jaret Patterson","team":"LAC","pos":"RB","posRank":"RB5","bye":"7"},{"rk":459,"name":"Daniel Carlson","team":"LV","pos":"K","posRank":"K1","bye":"13"},{"rk":460,"name":"Theo Wease Jr.","team":"MIA","pos":"WR","posRank":"WR7","bye":"6"},{"rk":461,"name":"Xavier Restrepo","team":"TEN","pos":"WR","posRank":"WR6","bye":"9"},{"rk":462,"name":"Tai Felton","team":"MIN","pos":"WR","posRank":"WR4","bye":"6"},{"rk":463,"name":"Riley Leonard","team":"IND","pos":"QB","posRank":"QB3","bye":"13"},{"rk":464,"name":"Demarcus Robinson","team":"SF","pos":"WR","posRank":"WR6","bye":"8"},{"rk":465,"name":"Jake Bobo","team":"SEA","pos":"WR","posRank":"WR5","bye":"11"},{"rk":466,"name":"New York Jets","team":"NYJ","pos":"DST","posRank":"DST1","bye":"13"},{"rk":467,"name":"Thomas Fidone II","team":"NYG","pos":"TE","posRank":"TE3","bye":"8"},{"rk":468,"name":"Las Vegas Raiders","team":"LV","pos":"DST","posRank":"DST1","bye":"13"},{"rk":469,"name":"Tyler Goodson","team":"ATL","pos":"RB","posRank":"RB3","bye":"11"},{"rk":470,"name":"Taysom Hill","team":"FA","pos":"TE","posRank":"TE5","bye":"-"},{"rk":471,"name":"Lil'Jordan Humphrey","team":"DEN","pos":"WR","posRank":"WR6","bye":"10"},{"rk":472,"name":"Michael Trigg","team":"DAL","pos":"TE","posRank":"TE3","bye":"14"},{"rk":473,"name":"Jaydn Ott","team":"KC","pos":"RB","posRank":"RB5","bye":"5"},{"rk":474,"name":"Diontae Johnson","team":"FA","pos":"WR","posRank":"WR6","bye":"-"},{"rk":475,"name":"Elijah Mitchell","team":"PHI","pos":"RB","posRank":"RB5","bye":"10"},{"rk":476,"name":"Adam Trautman","team":"DEN","pos":"TE","posRank":"TE3","bye":"10"},{"rk":477,"name":"Moliki Matavao","team":"NO","pos":"TE","posRank":"TE4","bye":"8"},{"rk":478,"name":"Frank Gore Jr.","team":"BUF","pos":"RB","posRank":"RB4","bye":"7"},{"rk":479,"name":"Ty Chandler","team":"NO","pos":"RB","posRank":"RB6","bye":"8"},{"rk":480,"name":"Jared Wiley","team":"KC","pos":"TE","posRank":"TE3","bye":"5"},{"rk":481,"name":"Jermaine Burton","team":"FA","pos":"WR","posRank":"WR7","bye":"-"},{"rk":482,"name":"Cash Jones","team":"ATL","pos":"RB","posRank":"RB4","bye":"11"},{"rk":483,"name":"Xavier Smith","team":"LAR","pos":"WR","posRank":"WR6","bye":"11"},{"rk":484,"name":"Reggie Virgil","team":"ARI","pos":"WR","posRank":"WR4","bye":"14"},{"rk":485,"name":"Michael Woods II","team":"DEN","pos":"WR","posRank":"WR7","bye":"10"},{"rk":486,"name":"Robert Henry Jr.","team":"WAS","pos":"RB","posRank":"RB6","bye":"7"},{"rk":487,"name":"Durham Smythe","team":"BAL","pos":"TE","posRank":"TE2","bye":"13"},{"rk":488,"name":"Jacob Saylors","team":"DET","pos":"RB","posRank":"RB4","bye":"6"},{"rk":489,"name":"Scotty Miller","team":"CHI","pos":"WR","posRank":"WR6","bye":"10"},{"rk":490,"name":"Ronnie Rivers","team":"LAR","pos":"RB","posRank":"RB4","bye":"11"},{"rk":491,"name":"Will Dissly","team":"FA","pos":"TE","posRank":"TE6","bye":"-"},{"rk":492,"name":"Derius Davis","team":"LAC","pos":"WR","posRank":"WR6","bye":"7"},{"rk":493,"name":"Sam Roush","team":"CHI","pos":"TE","posRank":"TE3","bye":"10"},{"rk":494,"name":"Miles Sanders","team":"FA","pos":"RB","posRank":"RB6","bye":"-"},{"rk":495,"name":"Elijah Tau-Tolliver","team":"BAL","pos":"RB","posRank":"RB5","bye":"13"},{"rk":496,"name":"Gabe Davis","team":"FA","pos":"WR","posRank":"WR8","bye":"-"},{"rk":497,"name":"Mecole Hardman Jr.","team":"BUF","pos":"WR","posRank":"WR6","bye":"7"},{"rk":498,"name":"Cade Stover","team":"HOU","pos":"TE","posRank":"TE3","bye":"8"},{"rk":499,"name":"Quinn Ewers","team":"MIA","pos":"QB","posRank":"QB2","bye":"6"},{"rk":500,"name":"Nate Boerkircher","team":"JAC","pos":"TE","posRank":"TE2","bye":"7"},{"rk":501,"name":"Donovan Edwards","team":"MIA","pos":"RB","posRank":"RB4","bye":"6"},{"rk":502,"name":"Mo Alie-Cox","team":"IND","pos":"TE","posRank":"TE2","bye":"13"},{"rk":503,"name":"Roman Hemby","team":"LV","pos":"RB","posRank":"RB4","bye":"13"},{"rk":504,"name":"Anthony Gould","team":"IND","pos":"WR","posRank":"WR6","bye":"13"},{"rk":505,"name":"Skyy Moore","team":"GB","pos":"WR","posRank":"WR5","bye":"11"},{"rk":506,"name":"Myles Montgomery","team":"NE","pos":"RB","posRank":"RB5","bye":"11"},{"rk":507,"name":"Tyler Conklin","team":"DET","pos":"TE","posRank":"TE2","bye":"6"},{"rk":508,"name":"Jason Sanders","team":"NYJ","pos":"K","posRank":"K1","bye":"13"}];
+</script>
+
+<!-- ══════════════════════════════════════════════
+     APP LOGIC
+══════════════════════════════════════════════ -->
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const ADMIN_NAMES = ['david', 'admin']; // lowercase — who gets admin tab
+let currentUser   = null;
+let draftState    = null;   // live Firestore doc
+let drafters      = [];     // ordered drafter array [{name,joined,slot}]
+let picks         = {};     // { pickNumber: {name,pos,team,bye,drafter} }
+let mySlot        = null;   // 0-indexed slot this user occupies
+let unsubDraft    = null;
+let researchPos   = 'ALL';
+let hidePicked    = false;
+let queuedPlayer  = null;
+let pendingPick   = null;   // player obj waiting for confirm modal
+let pickSugIdx    = -1;
+let adminPickSugIdx = -1;
+let adminEditSugIdx = -1;
+let adminEditPickNum = null;
+
+// ── BOOT ───────────────────────────────────────────────────────────────────
+window.addEventListener('firebase-ready', () => {
+  document.getElementById('loading-overlay').classList.add('hidden');
+  const saved = localStorage.getItem('draftUser');
+  if (saved) {
+    currentUser = saved;
+    enterApp();
+  } else {
+    showPage('login');
+  }
+});
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+}
+
+window.doLogin = function() {
+  const name = document.getElementById('login-name').value.trim();
+  if (!name) { document.getElementById('login-error').textContent = 'Enter your name.'; return; }
+  currentUser = name;
+  localStorage.setItem('draftUser', name);
+  enterApp();
+};
+document.getElementById('login-name').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+window.doLogout = function() {
+  if (unsubDraft) { unsubDraft(); unsubDraft = null; }
+  localStorage.removeItem('draftUser');
+  currentUser = null; draftState = null; drafters = []; picks = {};
+  mySlot = null; queuedPlayer = null;
+  showPage('login');
+};
+
+function enterApp() {
+  document.getElementById('nav-user-label').textContent = currentUser;
+  if (ADMIN_NAMES.includes(currentUser.toLowerCase())) {
+    document.getElementById('tab-admin').style.display = '';
+  }
+  showPage('app');
+  subscribeToFirestore();
+  renderResearch();
+  showTab('board');
+}
+
+// ── FIRESTORE SUBSCRIPTION ─────────────────────────────────────────────────
+function subscribeToFirestore() {
+  const db = window._db;
+  const draftDoc = window._doc(db, 'draft', 'state');
+  unsubDraft = window._onSnapshot(draftDoc, snap => {
+    if (snap.exists()) {
+      draftState = snap.data();
+    } else {
+      draftState = null;
+    }
+    onDraftStateChange();
+  });
+}
+
+async function saveDraftState(data) {
+  const db = window._db;
+  const ref = window._doc(db, 'draft', 'state');
+  await window._setDoc(ref, data, { merge: true });
+}
+
+function onDraftStateChange() {
+  if (!draftState) {
+    drafters = []; picks = {}; mySlot = null;
+    renderBoard(); updatePickBanner(); updatePickTab(); updateAdminUI();
+    return;
+  }
+  drafters = draftState.drafters || [];
+  picks    = draftState.picks    || {};
+  mySlot   = drafters.findIndex(d => d.name.toLowerCase() === currentUser.toLowerCase());
+  updateJoinSection();
+  renderBoard();
+  updatePickBanner();
+  updatePickTab();
+  updateAdminUI();
+  renderResearch(); // refresh picked state
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+window.showTab = function(tab) {
+  ['board','research','pick','admin'].forEach(t => {
+    document.getElementById('tab-content-' + t).style.display = (t===tab?'':'none');
+    const btn = document.getElementById('tab-' + t);
+    if (btn) btn.classList.toggle('active', t===tab);
+  });
+};
+
+// ── JOIN SECTION ───────────────────────────────────────────────────────────
+function updateJoinSection() {
+  const sec  = document.getElementById('join-section');
+  const txt  = document.getElementById('join-status-text');
+  const wrap = document.getElementById('join-btn-wrap');
+
+  if (!draftState || !draftState.active) {
+    sec.classList.add('disabled');
+    txt.textContent = 'Waiting for admin to open draft';
+    wrap.innerHTML = '';
+    return;
+  }
+  sec.classList.remove('disabled');
+
+  if (mySlot >= 0) {
+    txt.textContent = `You're in — Slot #${mySlot+1}`;
+    wrap.innerHTML = '';
+    return;
+  }
+  // Can join if there's room
+  const filledSlots = drafters.filter(d=>d.joined).length;
+  const totalSlots  = draftState.numDrafters || 10;
+  if (filledSlots >= totalSlots) {
+    txt.textContent = 'Draft is full';
+    wrap.innerHTML = '';
+    return;
+  }
+  txt.textContent = `${filledSlots} / ${totalSlots} spots filled`;
+  wrap.innerHTML = `<button class="btn-sm green" onclick="joinDraft()">JOIN DRAFT</button>`;
+}
+
+window.joinDraft = async function() {
+  if (!draftState || !draftState.active) return;
+  // Find an open slot
+  const taken = new Set(drafters.map(d=>d.slot));
+  let slot = 0;
+  while (taken.has(slot)) slot++;
+  const newDrafter = { name: currentUser, slot, joined: true };
+  const newDrafters = [...drafters, newDrafter].sort((a,b)=>a.slot-b.slot);
+  await saveDraftState({ drafters: newDrafters });
+};
+
+// ── BOARD RENDER ───────────────────────────────────────────────────────────
+function renderBoard() {
+  const wrap = document.getElementById('board-table-wrap');
+  if (!draftState || !draftState.active) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-style:italic;font-size:.9rem">Admin must initialize draft to see board.</div>';
+    return;
+  }
+  const numDrafters = draftState.numDrafters || 10;
+  const numRounds   = draftState.numRounds   || 15;
+  const totalPicks  = numDrafters * numRounds;
+  const currentPick = draftState.currentPick || 1;
+
+  // Build table
+  let html = '<table class="draft-table"><thead><tr><th>RND</th>';
+  for (let d = 0; d < numDrafters; d++) {
+    const drafter = drafters.find(dr => dr.slot === d);
+    const color   = `var(--d${d % 16})`;
+    html += `<th><span class="drafter-chip" style="background:${color}"></span>${drafter ? drafter.name : `Slot ${d+1}`}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for (let r = 0; r < numRounds; r++) {
+    const isEven = r % 2 === 0;
+    html += `<tr><td class="round-label">${r+1}${isEven?'→':'←'}</td>`;
+    for (let d = 0; d < numDrafters; d++) {
+      // Snake: even rounds left-to-right, odd rounds right-to-left
+      const col   = isEven ? d : (numDrafters - 1 - d);
+      const pNum  = r * numDrafters + col + 1;
+      const pick  = picks[pNum];
+      const isNow = pNum === currentPick && currentPick <= totalPicks;
+      const drafter = drafters.find(dr => dr.slot === col);
+      const color   = `var(--d${col % 16})`;
+
+      if (pick) {
+        html += `<td class="pick-cell picked" style="border-left:3px solid ${color}">
+          <div class="pick-num">#${pNum}</div>
+          <div class="pick-name" style="color:var(--picked-text)">${pick.name}</div>
+          <div class="pick-meta">
+            <span class="badge ${pick.pos}">${pick.pos}</span>
+            <span class="pick-team">${pick.team}</span>
+            <span class="pick-bye">Bye ${pick.bye}</span>
+          </div>
+        </td>`;
+      } else if (isNow) {
+        html += `<td class="pick-cell on-clock" style="border-left:3px solid ${color}">
+          <div class="pick-num">#${pNum} — ON THE CLOCK</div>
+          <div class="pick-name" style="color:var(--amber)">${drafter ? drafter.name : `Slot ${col+1}`}</div>
+          <div class="pick-meta"><span style="font-size:.65rem;color:var(--muted)">Waiting…</span></div>
+        </td>`;
+      } else {
+        html += `<td class="pick-cell empty-cell" style="border-left:3px solid rgba(255,255,255,.08)">
+          <div class="pick-num">#${pNum}</div>
+          <div class="pick-name" style="color:var(--dimmer)">${drafter ? drafter.name : `Slot ${col+1}`}</div>
+        </td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  document.getElementById('board-status').textContent =
+    currentPick <= totalPicks ? `Pick #${currentPick} of ${totalPicks}` : '✅ Draft complete';
+}
+
+// ── PICK BANNER ────────────────────────────────────────────────────────────
+function updatePickBanner() {
+  const banner = document.getElementById('pick-banner');
+  if (!draftState || !draftState.active) { banner.style.display='none'; return; }
+  const numDrafters = draftState.numDrafters || 10;
+  const numRounds   = draftState.numRounds   || 15;
+  const currentPick = draftState.currentPick || 1;
+  const totalPicks  = numDrafters * numRounds;
+  if (currentPick > totalPicks) { banner.style.display='none'; return; }
+
+  const round   = Math.ceil(currentPick / numDrafters);
+  const posInRound = ((currentPick - 1) % numDrafters);
+  const isEven  = (round % 2 === 1);
+  const col     = isEven ? posInRound : (numDrafters - 1 - posInRound);
+  const drafter = drafters.find(d => d.slot === col);
+
+  if (drafter && drafter.name.toLowerCase() === currentUser.toLowerCase()) {
+    banner.style.display = '';
+    banner.textContent = `🏈 YOU'RE ON THE CLOCK — Pick #${currentPick}, Round ${round}`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ── PICK TAB ───────────────────────────────────────────────────────────────
+function updatePickTab() {
+  if (!draftState || !draftState.active) {
+    document.getElementById('pick-tab-not-on-clock').style.display = '';
+    document.getElementById('pick-tab-on-clock').style.display = 'none';
+    document.getElementById('pick-tab-not-on-clock').textContent = 'Draft not started.';
+    return;
+  }
+  const numDrafters = draftState.numDrafters || 10;
+  const numRounds   = draftState.numRounds   || 15;
+  const currentPick = draftState.currentPick || 1;
+  const totalPicks  = numDrafters * numRounds;
+
+  if (currentPick > totalPicks) {
+    document.getElementById('pick-tab-not-on-clock').style.display = '';
+    document.getElementById('pick-tab-on-clock').style.display = 'none';
+    document.getElementById('pick-tab-not-on-clock').textContent = '✅ Draft is complete!';
+    return;
+  }
+
+  const round      = Math.ceil(currentPick / numDrafters);
+  const posInRound = ((currentPick - 1) % numDrafters);
+  const isEven     = (round % 2 === 1);
+  const col        = isEven ? posInRound : (numDrafters - 1 - posInRound);
+  const drafter    = drafters.find(d => d.slot === col);
+  const isMyTurn   = drafter && drafter.name.toLowerCase() === currentUser.toLowerCase();
+
+  document.getElementById('pick-tab-not-on-clock').style.display = isMyTurn ? 'none' : '';
+  document.getElementById('pick-tab-on-clock').style.display     = isMyTurn ? ''     : 'none';
+  if (isMyTurn) {
+    document.getElementById('on-clock-name-display').textContent = currentUser;
+    document.getElementById('on-clock-pick-display').textContent = `Pick #${currentPick} · Round ${round}`;
+  } else {
+    const onName = drafter ? drafter.name : `Slot ${col+1}`;
+    document.getElementById('pick-tab-not-on-clock').textContent = `Waiting on ${onName} — Pick #${currentPick}, Round ${round}`;
+  }
+
+  // Queued player
+  if (queuedPlayer) {
+    document.getElementById('queued-section').style.display = '';
+    document.getElementById('queued-player-wrap').innerHTML = `
+      <div class="queued-player">
+        <div class="queued-info">
+          <div class="queued-name">${queuedPlayer.name}</div>
+          <div class="queued-meta">${queuedPlayer.pos} · ${queuedPlayer.team} · Bye ${queuedPlayer.bye}</div>
+        </div>
+        <button class="btn-sm green" onclick="openPickConfirm(${JSON.stringify(queuedPlayer).replace(/"/g,'&quot;')})">PICK THIS</button>
+        <button class="btn-sm danger" onclick="clearQueue()">✕</button>
+      </div>`;
+  } else {
+    document.getElementById('queued-section').style.display = 'none';
+  }
+}
+
+window.clearQueue = function() { queuedPlayer = null; updatePickTab(); };
+
+// ── PICK TYPEAHEAD ─────────────────────────────────────────────────────────
+const pickedNames = () => new Set(Object.values(picks).map(p => p.name.toLowerCase()));
+
+window.filterPickSuggestions = function() {
+  const val  = document.getElementById('pick-search').value.trim().toLowerCase();
+  const list = document.getElementById('pick-suggestions');
+  pickSugIdx = -1;
+  if (!val || val.length < 2) { list.classList.remove('open'); list.innerHTML=''; return; }
+  const taken = pickedNames();
+  const matches = PLAYER_DATA.filter(p =>
+    !taken.has(p.name.toLowerCase()) &&
+    p.name.toLowerCase().includes(val)
+  ).slice(0, 12);
+  if (!matches.length) { list.classList.remove('open'); list.innerHTML=''; return; }
+  list.innerHTML = matches.map((p,i) =>
+    `<div class="suggestion-item" onmousedown="selectPickPlayer(${p.rk})" data-idx="${i}">
+      <span class="badge ${p.pos}">${p.pos}</span>
+      <span class="sug-name">${p.name}</span>
+      <span class="sug-meta">${p.team} · Bye ${p.bye}</span>
+    </div>`
+  ).join('');
+  list.classList.add('open');
+};
+
+window.pickKeydown = function(e) {
+  const list  = document.getElementById('pick-suggestions');
+  const items = list.querySelectorAll('.suggestion-item');
+  if (!items.length) return;
+  if (e.key==='ArrowDown') { e.preventDefault(); pickSugIdx = Math.min(pickSugIdx+1, items.length-1); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); pickSugIdx = Math.max(pickSugIdx-1, -1); }
+  else if (e.key==='Enter' && pickSugIdx>=0) { e.preventDefault(); items[pickSugIdx].dispatchEvent(new MouseEvent('mousedown')); return; }
+  else if (e.key==='Escape') { list.classList.remove('open'); return; }
+  items.forEach((el,i) => el.classList.toggle('active', i===pickSugIdx));
+};
+
+window.selectPickPlayer = function(rk) {
+  const p = PLAYER_DATA.find(pl => pl.rk===rk);
+  if (!p) return;
+  document.getElementById('pick-search').value = '';
+  document.getElementById('pick-suggestions').classList.remove('open');
+  openPickConfirm(p);
+};
+
+window.openPickConfirm = function(p) {
+  if (typeof p === 'string') p = JSON.parse(p);
+  pendingPick = p;
+  document.getElementById('modal-pick-name').textContent = p.name;
+  document.getElementById('modal-pick-meta').innerHTML =
+    `<span class="badge ${p.pos}">${p.pos}</span> <span style="color:var(--muted)">${p.team} · Bye ${p.bye} · Rank #${p.rk||'—'}</span>`;
+  document.getElementById('modal-confirm-pick').classList.remove('hidden');
+};
+
+window.submitConfirmedPick = async function() {
+  if (!pendingPick || !draftState) return;
+  const pickNum = draftState.currentPick;
+  const newPick = {
+    name: pendingPick.name, pos: pendingPick.pos,
+    team: pendingPick.team, bye: pendingPick.bye,
+    drafter: currentUser, rk: pendingPick.rk || null
+  };
+  const newPicks = { ...picks, [pickNum]: newPick };
+  const totalPicks = (draftState.numDrafters||10) * (draftState.numRounds||15);
+  await saveDraftState({ picks: newPicks, currentPick: Math.min(pickNum+1, totalPicks+1) });
+  pendingPick = null; queuedPlayer = null;
+  closeModal('modal-confirm-pick');
+  document.getElementById('pick-search').value = '';
+};
+
+// ── WRITE-IN ───────────────────────────────────────────────────────────────
+window.openWriteInModal = function() {
+  document.getElementById('writein-name').value = '';
+  document.getElementById('modal-writein').classList.remove('hidden');
+};
+window.confirmWriteIn = function() {
+  const name = document.getElementById('writein-name').value.trim();
+  const pos  = document.getElementById('writein-pos').value;
+  if (!name) return;
+  closeModal('modal-writein');
+  openPickConfirm({ name, pos, team:'—', bye:'—', rk: null });
+};
+
+// ── RESEARCH ───────────────────────────────────────────────────────────────
+window.setResearchPos = function(pos) {
+  researchPos = pos;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pos-' + pos).classList.add('active');
+  filterResearch();
+};
+
+window.filterResearch = function() {
+  const query  = (document.getElementById('research-search').value || '').toLowerCase();
+  const taken  = pickedNames();
+  document.querySelectorAll('.player-card').forEach(card => {
+    const pos  = card.dataset.pos;
+    const name = card.dataset.name.toLowerCase();
+    const isPicked = taken.has(card.dataset.name.toLowerCase());
+    card.classList.toggle('is-picked', isPicked);
+    const posOk  = researchPos === 'ALL' || pos === researchPos;
+    const nameOk = !query || name.includes(query);
+    const hideOk = hidePicked && isPicked;
+    card.classList.toggle('hide-picked', !posOk || !nameOk || hideOk);
+  });
+};
+
+window.toggleHidePicked = function() {
+  hidePicked = !hidePicked;
+  const btn = document.getElementById('hide-picked-btn');
+  btn.classList.toggle('on', hidePicked);
+  btn.textContent = hidePicked ? 'SHOW ALL' : 'HIDE PICKED';
+  filterResearch();
+};
+
+function renderResearch() {
+  const grid  = document.getElementById('research-grid');
+  const taken = pickedNames();
+  grid.innerHTML = PLAYER_DATA.map(p => {
+    const isPicked = taken.has(p.name.toLowerCase());
+    return `<div class="player-card${isPicked?' is-picked':''}"
+      data-pos="${p.pos}" data-name="${p.name}"
+      onclick="${isPicked?'':(`openQueueModal(${p.rk})`)}">
+      <div class="p-rank">#${p.rk} · ${p.posRank}</div>
+      <div class="p-name">${p.name}</div>
+      <div class="p-meta">
+        <span class="badge ${p.pos}">${p.pos}</span>
+        <span class="p-team">${p.team}</span>
+        <span class="p-bye">Bye ${p.bye}</span>
+      </div>
+      ${isPicked ? '<div class="p-picked-label">PICKED</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+window.openQueueModal = function(rk) {
+  const p = PLAYER_DATA.find(pl => pl.rk===rk);
+  if (!p) return;
+  window._pendingQueue = p;
+  document.getElementById('modal-queue-name').textContent = p.name;
+  document.getElementById('modal-queue-meta').innerHTML =
+    `<span class="badge ${p.pos}">${p.pos}</span> <span style="color:var(--muted)">${p.team} · Bye ${p.bye}</span>`;
+  document.getElementById('modal-queue').classList.remove('hidden');
+};
+window.confirmQueue = function() {
+  queuedPlayer = window._pendingQueue;
+  closeModal('modal-queue');
+  updatePickTab();
+  showTab('pick');
+};
+
+// ── ADMIN ──────────────────────────────────────────────────────────────────
+function updateAdminUI() {
+  if (!ADMIN_NAMES.includes((currentUser||'').toLowerCase())) return;
+  const dot   = document.getElementById('draft-status-dot');
+  const label = document.getElementById('draft-status-label');
+  if (draftState && draftState.active) {
+    dot.className   = 'status-dot live';
+    label.textContent = `Live — Pick #${draftState.currentPick||1}`;
+  } else {
+    dot.className   = 'status-dot idle';
+    label.textContent = 'Not started';
+  }
+  renderAdminOrderList();
+  renderAdminPickFor();
+  renderAdminEditPicks();
+}
+
+window.adminStartDraft = async function() {
+  const n = parseInt(document.getElementById('admin-num-drafters').value) || 10;
+  const r = parseInt(document.getElementById('admin-rounds').value) || 15;
+  const slots = Array.from({length:n},(_,i)=>({name:`Slot ${i+1}`,slot:i,joined:false}));
+  await saveDraftState({
+    active: true, numDrafters: n, numRounds: r,
+    currentPick: 1, picks: {}, drafters: slots
+  });
+  document.getElementById('fb-setup').textContent = 'Draft initialized!';
+  setTimeout(()=>document.getElementById('fb-setup').textContent='',3000);
+};
+
+function renderAdminOrderList() {
+  const list = document.getElementById('admin-order-list');
+  if (!drafters.length) { list.innerHTML='<div style="font-size:.8rem;color:var(--muted)">Initialize draft to set order.</div>'; return; }
+  list.innerHTML = '<ul class="drafter-order-list">' + drafters.map((d,i) =>
+    `<li class="drafter-order-item">
+      <span class="order-num">${i+1}</span>
+      <input class="admin-input" style="height:28px;padding:.2rem .5rem;flex:1" 
+        value="${d.name}" id="order-input-${d.slot}" onchange="markOrderDirty()">
+      <button class="btn-sm" style="padding:.15rem .45rem;font-size:.7rem" onclick="moveSlot(${d.slot},-1)">↑</button>
+      <button class="btn-sm" style="padding:.15rem .45rem;font-size:.7rem" onclick="moveSlot(${d.slot},1)">↓</button>
+    </li>`
+  ).join('') + '</ul>';
+}
+
+window.markOrderDirty = function() {};
+
+window.moveSlot = function(slot, dir) {
+  const idx = drafters.findIndex(d=>d.slot===slot);
+  const swap = idx + dir;
+  if (swap<0||swap>=drafters.length) return;
+  [drafters[idx].slot, drafters[swap].slot] = [drafters[swap].slot, drafters[idx].slot];
+  drafters.sort((a,b)=>a.slot-b.slot);
+  renderAdminOrderList();
+};
+
+window.adminRandomizeOrder = function() {
+  const shuffled = drafters.map(d=>d.slot).sort(()=>Math.random()-.5);
+  drafters.forEach((d,i)=> d.slot = shuffled[i]);
+  drafters.sort((a,b)=>a.slot-b.slot);
+  renderAdminOrderList();
+};
+
+window.adminSaveOrder = async function() {
+  // Read current input values
+  drafters.forEach(d => {
+    const inp = document.getElementById('order-input-' + d.slot);
+    if (inp) d.name = inp.value.trim() || d.name;
+  });
+  await saveDraftState({ drafters });
+  document.getElementById('fb-order').textContent = 'Order saved!';
+  setTimeout(()=>document.getElementById('fb-order').textContent='',3000);
+};
+
+window.adminReversePick = function() {
+  if (!draftState || !draftState.active) return;
+  const prev = (draftState.currentPick||1) - 1;
+  if (prev < 1) { document.getElementById('fb-setup').textContent='No picks to reverse.'; return; }
+  const p = picks[prev];
+  document.getElementById('modal-reverse-body').textContent =
+    p ? `Remove pick #${prev}: ${p.name}?` : `Move clock back to pick #${prev}?`;
+  document.getElementById('modal-reverse').classList.remove('hidden');
+};
+
+window.confirmReverse = async function() {
+  const prev = (draftState.currentPick||1) - 1;
+  if (prev < 1) { closeModal('modal-reverse'); return; }
+  const newPicks = { ...picks };
+  delete newPicks[prev];
+  await saveDraftState({ currentPick: prev, picks: newPicks });
+  closeModal('modal-reverse');
+};
+
+// Admin — make pick for drafter
+function renderAdminPickFor() {
+  const sel = document.getElementById('admin-pick-for');
+  sel.innerHTML = '<option value="">— Select drafter —</option>' +
+    drafters.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+}
+
+window.filterAdminPickSugg = function() {
+  const val  = document.getElementById('admin-pick-search').value.trim().toLowerCase();
+  const list = document.getElementById('admin-pick-suggestions');
+  adminPickSugIdx = -1;
+  if (!val||val.length<2) { list.classList.remove('open'); list.innerHTML=''; return; }
+  const taken = pickedNames();
+  const matches = PLAYER_DATA.filter(p => !taken.has(p.name.toLowerCase()) && p.name.toLowerCase().includes(val)).slice(0,10);
+  list.innerHTML = matches.map((p,i) =>
+    `<div class="suggestion-item" onmousedown="selectAdminPick(${p.rk})" data-idx="${i}">
+      <span class="badge ${p.pos}">${p.pos}</span><span class="sug-name">${p.name}</span>
+      <span class="sug-meta">${p.team}</span></div>`
+  ).join('');
+  list.classList.toggle('open', !!matches.length);
+};
+window.adminPickKeydown = function(e) {
+  const list=document.getElementById('admin-pick-suggestions');
+  const items=list.querySelectorAll('.suggestion-item');
+  if(!items.length) return;
+  if(e.key==='ArrowDown'){e.preventDefault();adminPickSugIdx=Math.min(adminPickSugIdx+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();adminPickSugIdx=Math.max(adminPickSugIdx-1,-1);}
+  else if(e.key==='Enter'&&adminPickSugIdx>=0){e.preventDefault();items[adminPickSugIdx].dispatchEvent(new MouseEvent('mousedown'));return;}
+  items.forEach((el,i)=>el.classList.toggle('active',i===adminPickSugIdx));
+};
+window.selectAdminPick = function(rk) {
+  const p=PLAYER_DATA.find(pl=>pl.rk===rk);
+  if(!p) return;
+  window._adminPickPlayer = p;
+  document.getElementById('admin-pick-search').value = p.name;
+  document.getElementById('admin-pick-suggestions').classList.remove('open');
+};
+window.adminMakePick = async function() {
+  const drafter = document.getElementById('admin-pick-for').value;
+  const p = window._adminPickPlayer;
+  if (!drafter||!p) { document.getElementById('fb-pick-for').textContent='Select drafter and player.'; return; }
+  const pickNum = draftState.currentPick;
+  const newPick = {name:p.name,pos:p.pos,team:p.team,bye:p.bye,drafter,rk:p.rk||null};
+  const newPicks = {...picks,[pickNum]:newPick};
+  const total = (draftState.numDrafters||10)*(draftState.numRounds||15);
+  await saveDraftState({picks:newPicks,currentPick:Math.min(pickNum+1,total+1)});
+  document.getElementById('fb-pick-for').textContent=`Picked ${p.name} for ${drafter}!`;
+  document.getElementById('admin-pick-search').value='';
+  window._adminPickPlayer=null;
+  setTimeout(()=>document.getElementById('fb-pick-for').textContent='',3000);
+};
+
+// Admin — edit existing pick
+function renderAdminEditPicks() {
+  const grid = document.getElementById('admin-edit-pick-grid');
+  const filled = Object.keys(picks).map(Number).sort((a,b)=>a-b);
+  if (!filled.length) { grid.innerHTML='<div style="font-size:.78rem;color:var(--dimmer)">No picks yet.</div>'; return; }
+  grid.innerHTML = filled.map(n =>
+    `<div class="edit-pick-cell${adminEditPickNum===n?' selected':''}" onclick="selectEditPick(${n})">
+      #${n}: ${picks[n].name.split(' ').slice(-1)[0]}
+    </div>`
+  ).join('');
+}
+window.selectEditPick = function(n) {
+  adminEditPickNum = n;
+  document.getElementById('admin-edit-selected').textContent = `Editing pick #${n}: ${picks[n].name}`;
+  document.getElementById('admin-edit-search').value='';
+  window._adminEditPlayer=null;
+  renderAdminEditPicks();
+};
+window.filterAdminEditSugg = function() {
+  const val=document.getElementById('admin-edit-search').value.trim().toLowerCase();
+  const list=document.getElementById('admin-edit-suggestions');
+  adminEditSugIdx=-1;
+  if(!val||val.length<2){list.classList.remove('open');list.innerHTML='';return;}
+  const taken=new Set(Object.entries(picks).filter(([k])=>Number(k)!==adminEditPickNum).map(([,v])=>v.name.toLowerCase()));
+  const matches=PLAYER_DATA.filter(p=>!taken.has(p.name.toLowerCase())&&p.name.toLowerCase().includes(val)).slice(0,10);
+  list.innerHTML=matches.map((p,i)=>
+    `<div class="suggestion-item" onmousedown="selectAdminEdit(${p.rk})" data-idx="${i}">
+      <span class="badge ${p.pos}">${p.pos}</span><span class="sug-name">${p.name}</span>
+      <span class="sug-meta">${p.team}</span></div>`
+  ).join('');
+  list.classList.toggle('open',!!matches.length);
+};
+window.adminEditKeydown=function(e){
+  const list=document.getElementById('admin-edit-suggestions');
+  const items=list.querySelectorAll('.suggestion-item');
+  if(!items.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();adminEditSugIdx=Math.min(adminEditSugIdx+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();adminEditSugIdx=Math.max(adminEditSugIdx-1,-1);}
+  else if(e.key==='Enter'&&adminEditSugIdx>=0){e.preventDefault();items[adminEditSugIdx].dispatchEvent(new MouseEvent('mousedown'));return;}
+  items.forEach((el,i)=>el.classList.toggle('active',i===adminEditSugIdx));
+};
+window.selectAdminEdit=function(rk){
+  const p=PLAYER_DATA.find(pl=>pl.rk===rk);
+  if(!p)return;
+  window._adminEditPlayer=p;
+  document.getElementById('admin-edit-search').value=p.name;
+  document.getElementById('admin-edit-suggestions').classList.remove('open');
+};
+window.adminEditPick=async function(){
+  const p=window._adminEditPlayer;
+  if(!adminEditPickNum||!p){document.getElementById('fb-edit').textContent='Select a pick and replacement.';return;}
+  const orig=picks[adminEditPickNum];
+  const newPick={...orig,name:p.name,pos:p.pos,team:p.team,bye:p.bye,rk:p.rk||null};
+  const newPicks={...picks,[adminEditPickNum]:newPick};
+  await saveDraftState({picks:newPicks});
+  document.getElementById('fb-edit').textContent=`Pick #${adminEditPickNum} updated to ${p.name}!`;
+  adminEditPickNum=null;window._adminEditPlayer=null;
+  document.getElementById('admin-edit-search').value='';
+  document.getElementById('admin-edit-selected').textContent='';
+  setTimeout(()=>document.getElementById('fb-edit').textContent='',3000);
+};
+
+// ── MODALS ─────────────────────────────────────────────────────────────────
+window.closeModal = function(id) {
+  document.getElementById(id).classList.add('hidden');
+};
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.add('hidden'); });
+});
+
+// ── CLOSE DROPDOWNS ON OUTSIDE CLICK ──────────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('#pick-search') && !e.target.closest('#pick-suggestions'))
+    document.getElementById('pick-suggestions').classList.remove('open');
+  if (!e.target.closest('#admin-pick-search') && !e.target.closest('#admin-pick-suggestions'))
+    document.getElementById('admin-pick-suggestions').classList.remove('open');
+  if (!e.target.closest('#admin-edit-search') && !e.target.closest('#admin-edit-suggestions'))
+    document.getElementById('admin-edit-suggestions').classList.remove('open');
+});
+</script>
+</body>
+</html>
