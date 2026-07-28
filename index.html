@@ -263,6 +263,9 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
   .nav-brand{font-size:1rem}
   .login-card{padding:2rem 1.25rem}
 }
+.stat-box{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:5px;padding:.45rem .6rem;text-align:center}
+.stat-val{font-family:'Oswald',sans-serif;font-size:1.1rem;color:var(--amber);letter-spacing:.04em}
+.stat-lbl{font-size:.6rem;color:var(--muted);letter-spacing:.07em;margin-top:.1rem}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:500;padding:1.5rem}
 .modal-overlay.hidden{display:none}
 .modal-box{background:var(--panel);border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:2rem;width:100%;max-width:420px}
@@ -531,16 +534,25 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 
 <!-- MODALS -->
 <div class="modal-overlay hidden" id="modal-queue">
-  <div class="modal-box">
-    <div class="modal-title">ADD TO QUEUE?</div>
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-title" id="modal-queue-title">PLAYER INFO</div>
     <div class="modal-player-info">
       <div class="modal-player-name" id="modal-queue-name"></div>
       <div class="modal-player-meta" id="modal-queue-meta"></div>
     </div>
-    <div class="modal-body">Add this player to your pick selection tab?</div>
+    <!-- ESPN Stats Panel -->
+    <div id="modal-stats-panel" style="margin-bottom:1.25rem">
+      <div id="modal-stats-loading" style="font-size:.8rem;color:var(--muted);font-style:italic">Loading stats…</div>
+      <div id="modal-stats-content" style="display:none">
+        <div style="font-size:.68rem;letter-spacing:.08em;color:var(--muted);margin-bottom:.5rem;font-family:'Oswald',sans-serif">2024 SEASON STATS</div>
+        <div id="modal-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.4rem"></div>
+        <div id="modal-stats-note" style="font-size:.68rem;color:var(--dimmer);margin-top:.5rem;font-style:italic"></div>
+      </div>
+      <div id="modal-stats-error" style="display:none;font-size:.78rem;color:var(--dimmer);font-style:italic"></div>
+    </div>
     <div class="modal-actions">
-      <button class="btn-sm" onclick="closeModal('modal-queue')">CANCEL</button>
-      <button class="btn-sm green" onclick="confirmQueue()">ADD TO QUEUE</button>
+      <button class="btn-sm" onclick="closeModal('modal-queue')">CLOSE</button>
+      <button class="btn-sm green" id="modal-queue-btn" onclick="confirmQueue()">ADD TO QUEUE</button>
     </div>
   </div>
 </div>
@@ -1190,14 +1202,116 @@ function renderResearch() {
   }).join('');
 }
 
-window.openQueueModal = function(rk) {
+window.openQueueModal = async function(rk) {
   const p = PLAYER_DATA.find(pl => pl.rk === rk);
   if (!p) return;
   window._pendingQueue = p;
+
+  // Reset modal
   document.getElementById('modal-queue-name').textContent = p.name;
   document.getElementById('modal-queue-meta').innerHTML =
-    `<span class="badge ${p.pos}">${p.pos}</span> <span style="color:var(--muted)">${p.team} · Bye ${p.bye}</span>`;
+    `<span class="badge ${p.pos}">${p.pos}</span> <span style="color:var(--muted)">${p.team} · Bye ${p.bye} · Rank #${p.rk}</span>`;
+  document.getElementById('modal-stats-loading').style.display = '';
+  document.getElementById('modal-stats-content').style.display = 'none';
+  document.getElementById('modal-stats-error').style.display = 'none';
   document.getElementById('modal-queue').classList.remove('hidden');
+
+  // Skip stats for K and DST
+  if (p.pos === 'K' || p.pos === 'DST') {
+    document.getElementById('modal-stats-loading').style.display = 'none';
+    document.getElementById('modal-stats-error').style.display = '';
+    document.getElementById('modal-stats-error').textContent = 'Stats not available for K/DST.';
+    return;
+  }
+
+  try {
+    // Step 1: search ESPN for the player by name
+    const searchName = encodeURIComponent(p.name.replace(/['']/g, '').split(' ').slice(0,2).join(' '));
+    const searchRes  = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/athletes?search=${searchName}&limit=5`,
+      { mode: 'cors' }
+    );
+    if (!searchRes.ok) throw new Error('ESPN search failed');
+    const searchData = await searchRes.json();
+    const athletes   = searchData.athletes || [];
+
+    // Find best name match
+    const nameLower  = p.name.toLowerCase().replace(/[^a-z ]/g,'');
+    let espnAthlete  = athletes.find(a => {
+      const full = (a.fullName || '').toLowerCase().replace(/[^a-z ]/g,'');
+      return full === nameLower || full.includes(nameLower.split(' ')[0]) && full.includes(nameLower.split(' ').slice(-1)[0]);
+    });
+    if (!espnAthlete && athletes.length) espnAthlete = athletes[0];
+    if (!espnAthlete) throw new Error('Player not found on ESPN');
+
+    const espnId = espnAthlete.id;
+
+    // Step 2: fetch their stats
+    const statsRes  = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/athletes/${espnId}/stats`,
+      { mode: 'cors' }
+    );
+    if (!statsRes.ok) throw new Error('Stats fetch failed');
+    const statsData = await statsRes.json();
+
+    // Parse stat categories
+    const statMap = {};
+    const splits  = statsData.splits || {};
+    const cats    = splits.categories || [];
+    cats.forEach(cat => {
+      (cat.stats || []).forEach(s => { statMap[s.name] = s.value; });
+    });
+
+    // Build display stats by position
+    let statDefs = [];
+    if (p.pos === 'QB') {
+      statDefs = [
+        { key: 'passingYards',       label: 'PASS YDS' },
+        { key: 'passingTouchdowns',  label: 'PASS TD' },
+        { key: 'interceptions',      label: 'INT' },
+        { key: 'completionPct',      label: 'COMP%', fmt: v => v.toFixed(1) + '%' },
+        { key: 'rushingYards',       label: 'RUSH YDS' },
+        { key: 'rushingTouchdowns',  label: 'RUSH TD' },
+      ];
+    } else if (p.pos === 'RB') {
+      statDefs = [
+        { key: 'rushingYards',       label: 'RUSH YDS' },
+        { key: 'rushingTouchdowns',  label: 'RUSH TD' },
+        { key: 'rushingAttempts',    label: 'ATT' },
+        { key: 'yardsPerRushAttempt',label: 'YPC', fmt: v => v.toFixed(1) },
+        { key: 'receivingYards',     label: 'REC YDS' },
+        { key: 'receivingTouchdowns',label: 'REC TD' },
+        { key: 'receptions',         label: 'REC' },
+      ];
+    } else if (p.pos === 'WR' || p.pos === 'TE') {
+      statDefs = [
+        { key: 'receivingYards',     label: 'REC YDS' },
+        { key: 'receivingTouchdowns',label: 'TD' },
+        { key: 'receptions',         label: 'REC' },
+        { key: 'receivingTargets',   label: 'TGT' },
+        { key: 'yardsPerReception',  label: 'YPR', fmt: v => v.toFixed(1) },
+        { key: 'rushingYards',       label: 'RUSH YDS' },
+      ];
+    }
+
+    const boxes = statDefs
+      .filter(s => statMap[s.key] !== undefined && statMap[s.key] !== null)
+      .map(s => {
+        const raw = statMap[s.key];
+        const val = s.fmt ? s.fmt(raw) : (Number.isInteger(raw) ? raw : parseFloat(raw).toFixed(1));
+        return `<div class="stat-box"><div class="stat-val">${val}</div><div class="stat-lbl">${s.label}</div></div>`;
+      }).join('');
+
+    document.getElementById('modal-stats-grid').innerHTML = boxes || '<span style="font-size:.78rem;color:var(--dimmer)">No stat data found.</span>';
+    document.getElementById('modal-stats-note').textContent = `Source: ESPN · ${espnAthlete.fullName || p.name}`;
+    document.getElementById('modal-stats-loading').style.display = 'none';
+    document.getElementById('modal-stats-content').style.display = '';
+
+  } catch(err) {
+    document.getElementById('modal-stats-loading').style.display = 'none';
+    document.getElementById('modal-stats-error').style.display = '';
+    document.getElementById('modal-stats-error').textContent = `Stats unavailable (${err.message})`;
+  }
 };
 window.confirmQueue = function() {
   queuedPlayer = window._pendingQueue;
