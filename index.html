@@ -919,12 +919,12 @@ function renderBoard() {
     const isEven = r % 2 === 0;
     html += `<tr><td class="round-label">${r+1}${isEven ? '→' : '←'}</td>`;
     for (let d = 0; d < numDrafters; d++) {
-      const col    = isEven ? d : (numDrafters - 1 - d);
-      const pNum   = r * numDrafters + col + 1;
-      const pick   = picks[pNum];
-      const isNow  = !isDone && pNum === currentPick;
+      const col     = isEven ? d : (numDrafters - 1 - d);
+      const pNum    = r * numDrafters + col + 1;
+      const pick    = picks[pNum];
+      const isNow   = !isDone && pNum === currentPick;
       const drafter = drafters.find(dr => dr.slot === col);
-      const color   = `var(--d${col % 16})`;
+      const color   = `var(--d${d % 16})`; // always visual column, matches header
 
       if (pick) {
         const darkText = pick.pos === 'K';
