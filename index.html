@@ -1737,12 +1737,14 @@ window.updateAdminPickTarget = function() {
   }
 
   // "Pick in Round" = sequential order (1 = first to pick this round, N = last)
-  // Odd rounds (→): 1st pick = leftmost (col 0), 2nd = col 1, etc.
-  // Even rounds (←): 1st pick = rightmost (col N-1), 2nd = col N-2, etc.
-  const r           = round - 1; // 0-indexed
+  // Odd rounds (→): 1st pick = leftmost col, overall pick increments left→right
+  // Even rounds (←): 1st pick = rightmost col, overall pick increments right→left
+  const r             = round - 1; // 0-indexed
   const isLeftToRight = round % 2 === 1;
+  // col = the drafter's slot (0-indexed from left)
   const col         = isLeftToRight ? (pos - 1) : (numDrafters - pos);
-  const overallPick = r * numDrafters + col + 1;
+  // overall pick: base + sequential position within round
+  const overallPick = r * numDrafters + pos;
   const drafter  = drafters.find(d => d.slot === col);
   const name     = drafter ? drafter.name : `Slot ${col + 1}`;
   const existing = picks[overallPick];
