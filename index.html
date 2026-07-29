@@ -159,7 +159,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .draft-table th{font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:.08em;color:var(--muted);background:var(--panel);padding:.5rem .6rem;text-align:center;position:sticky;top:0;border-bottom:1px solid var(--line);white-space:nowrap;z-index:10}
 .draft-table td{border:1px solid var(--line);vertical-align:top}
 .round-label{font-family:'Oswald',sans-serif;font-size:.82rem;color:var(--muted);padding:.5rem .6rem;text-align:center;background:var(--panel);white-space:nowrap;position:sticky;left:0;z-index:5}
-.pick-cell{min-width:110px;max-width:140px;padding:.5rem .6rem;background:var(--turf);transition:background .12s;position:relative}
+.pick-cell{min-width:130px;max-width:160px;padding:.5rem .6rem;background:var(--turf);transition:background .12s;position:relative}
 .pick-cell.empty-cell{background:var(--field)}
 .pick-cell.on-clock{background:rgba(245,166,35,.12);outline:2px solid var(--amber);outline-offset:-2px}
 /* position-colored filled cells */
@@ -1002,13 +1002,19 @@ function renderBoard() {
       if (pick) {
         const darkText = pick.pos === 'K';
         const nameColor = darkText ? '#111' : '#fff';
+        const pickLogo  = pick.team && pick.team !== 'FA' && pick.team !== '—' ? espnLogoUrl(pick.team) : '';
         html += `<td class="pick-cell picked pos-${pick.pos}" style="border-left:4px solid ${color}">
-          <div class="pick-num">#${pNum}</div>
-          <div class="pick-name" style="color:${nameColor}">${pick.name}</div>
-          <div class="pick-meta">
-            <span style="font-family:'Oswald',sans-serif;font-size:.68rem;font-weight:700;opacity:.75;color:${nameColor}">${pick.pos}</span>
-            <span class="pick-team">${pick.team}</span>
-            <span class="pick-bye">Bye ${pick.bye}</span>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.2rem">
+            <div style="flex:1;min-width:0">
+              <div class="pick-num">#${pNum}</div>
+              <div class="pick-name" style="color:${nameColor}">${pick.name}</div>
+              <div class="pick-meta">
+                <span style="font-family:'Oswald',sans-serif;font-size:.68rem;font-weight:700;opacity:.75;color:${nameColor}">${pick.pos}</span>
+                <span class="pick-team">${pick.team}</span>
+                <span class="pick-bye">Bye ${pick.bye}</span>
+              </div>
+            </div>
+            ${pickLogo ? `<img src="${pickLogo}" alt="${pick.team}" style="width:28px;height:28px;object-fit:contain;opacity:.85;flex-shrink:0;margin-top:.1rem" onerror="this.style.display='none'">` : ''}
           </div>
         </td>`;
       } else if (isNow) {
