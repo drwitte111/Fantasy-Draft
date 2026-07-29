@@ -493,6 +493,9 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
         <div class="admin-row">
           <button class="btn-sm danger" onclick="adminCloseDraft()">CLOSE DRAFT</button>
         </div>
+        <div class="admin-row">
+          <button class="btn-sm" onclick="exportDraftCSV()">⬇ EXPORT CSV</button>
+        </div>
         <div class="feedback" id="fb-setup"></div>
       </div>
 
@@ -1895,6 +1898,29 @@ window.closeModal = function(id) { document.getElementById(id).classList.add('hi
 document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
 });
+
+// ── EXPORT CSV ─────────────────────────────────────────────────────────────
+window.exportDraftCSV = function() {
+  if (!picks || !Object.keys(picks).length) { alert('No picks to export.'); return; }
+  const numDrafters = draftState?.numDrafters || 10;
+  const rows = [['Overall Pick','Round','Round Pick','Owner','Player','Position','Team','Bye','ADP Rank']];
+  const sortedPicks = Object.keys(picks).map(Number).sort((a, b) => a - b);
+  for (const overall of sortedPicks) {
+    const p = picks[overall];
+    const round      = Math.ceil(overall / numDrafters);
+    const posInRound = overall - (round - 1) * numDrafters;
+    const roundPick  = round % 2 === 0 ? (numDrafters + 1 - posInRound) : posInRound;
+    rows.push([overall, round, roundPick, p.drafter||'', p.name||'', p.pos||'', p.team||'', p.bye||'', p.rk||'']);
+  }
+  const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${(draftState?.name || 'draft').replace(/[^a-z0-9]/gi,'_')}_picks.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 // ── CLOSE DROPDOWNS ────────────────────────────────────────────────────────
 document.addEventListener('click', e => {
