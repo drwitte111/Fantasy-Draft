@@ -310,9 +310,9 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .nav-drawer{display:none;position:fixed;inset:0;z-index:400}
 .nav-drawer.open{display:block}
 .nav-drawer-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6)}
-.nav-drawer-panel{position:absolute;top:0;right:0;bottom:0;width:220px;background:var(--panel);border-left:1px solid rgba(245,166,35,.25);display:flex;flex-direction:column;padding-top:calc(1rem + env(safe-area-inset-top));gap:.25rem;padding:1rem}
-.nav-drawer-panel .nav-btn{text-align:left;font-size:1rem;padding:.65rem 1rem;border-radius:6px}
-.nav-drawer-panel .nav-btn.active{background:rgba(245,166,35,.1)}
+.nav-drawer-panel{position:absolute;top:0;right:0;bottom:0;width:240px;background:var(--panel);border-left:1px solid rgba(245,166,35,.25);display:flex;flex-direction:column;gap:.25rem;padding:1.25rem 1rem;padding-top:calc(1.25rem + env(safe-area-inset-top));overflow-y:auto}
+.nav-drawer-panel .nav-btn{text-align:left;font-size:1.1rem;padding:.75rem 1rem;border-radius:6px;min-height:48px}
+.nav-drawer-panel .nav-btn.active{background:rgba(245,166,35,.1);color:var(--amber)}
 @media(max-width:640px){
   .nav-links{display:none}
   .nav-hamburger{display:block}
@@ -492,9 +492,6 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
         </div>
         <div class="admin-row">
           <button class="btn-sm danger" onclick="adminCloseDraft()">CLOSE DRAFT</button>
-        </div>
-        <div class="admin-row">
-          <button class="btn-sm" onclick="exportDraftCSV()">⬇ EXPORT CSV</button>
         </div>
         <div class="feedback" id="fb-setup"></div>
       </div>
@@ -915,8 +912,10 @@ window.closeDrawer = function() {
 window.showTab = function(tab) {
   ['board','research','pick','history','admin'].forEach(t => {
     document.getElementById('tab-content-' + t).style.display = (t === tab ? '' : 'none');
-    const btn = document.getElementById('tab-' + t);
-    if (btn) btn.classList.toggle('active', t === tab);
+    const btn    = document.getElementById('tab-' + t);
+    const drawer = document.getElementById('drawer-' + t);
+    if (btn)    btn.classList.toggle('active', t === tab);
+    if (drawer) drawer.classList.toggle('active', t === tab);
   });
   if (tab === 'history') loadHistoryTab();
 };
@@ -1898,29 +1897,6 @@ window.closeModal = function(id) { document.getElementById(id).classList.add('hi
 document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
 });
-
-// ── EXPORT CSV ─────────────────────────────────────────────────────────────
-window.exportDraftCSV = function() {
-  if (!picks || !Object.keys(picks).length) { alert('No picks to export.'); return; }
-  const numDrafters = draftState?.numDrafters || 10;
-  const rows = [['Overall Pick','Round','Round Pick','Owner','Player','Position','Team','Bye','ADP Rank']];
-  const sortedPicks = Object.keys(picks).map(Number).sort((a, b) => a - b);
-  for (const overall of sortedPicks) {
-    const p = picks[overall];
-    const round      = Math.ceil(overall / numDrafters);
-    const posInRound = overall - (round - 1) * numDrafters;
-    const roundPick  = round % 2 === 0 ? (numDrafters + 1 - posInRound) : posInRound;
-    rows.push([overall, round, roundPick, p.drafter||'', p.name||'', p.pos||'', p.team||'', p.bye||'', p.rk||'']);
-  }
-  const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `${(draftState?.name || 'draft').replace(/[^a-z0-9]/gi,'_')}_picks.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
 
 // ── CLOSE DROPDOWNS ────────────────────────────────────────────────────────
 document.addEventListener('click', e => {
