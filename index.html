@@ -1773,10 +1773,9 @@ window.adminMakePick = async function() {
 
   document.getElementById('fb-pick-for').textContent = `Pick #${pickNum} set to ${p.name} for ${drafter}!`;
   document.getElementById('admin-pick-search').value = '';
-  document.getElementById('admin-pick-target-label').textContent = '';
-  window._adminPickPlayer    = null;
-  window._adminTargetPick    = null;
-  window._adminTargetDrafter = null;
+  window._adminPickPlayer = null;
+  // Don't clear _adminTargetPick — renderAdminPickFor will update it via updateAdminPickTarget
+  // when Firestore fires, advancing to the next pick automatically
   setTimeout(() => document.getElementById('fb-pick-for').textContent = '', 3000);
 };
 
