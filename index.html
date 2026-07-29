@@ -637,7 +637,25 @@ async function loadPlayerData() {
 
 <!-- APP LOGIC -->
 <script>
-// ── CONSTANTS ──────────────────────────────────────────────────────────────
+// ── STATS DATA — loaded from CSV at runtime ────────────────────────────────
+let STATS_DATA = []; // array of stat objects keyed by name
+
+async function loadStatsData() {
+  try {
+    const res  = await fetch('2025_stats.csv');
+    const text = await res.text();
+    const lines = text.trim().split(/\r?\n/);
+    const headers = lines[0].split(',');
+    STATS_DATA = lines.slice(1).map(line => {
+      const cols = line.split(',');
+      const obj  = {};
+      headers.forEach((h, i) => obj[h.trim()] = (cols[i] || '').trim());
+      return obj;
+    });
+  } catch(e) {
+    console.warn('Stats CSV not loaded:', e);
+  }
+}
 const ADMIN_NAMES = ['david', 'admin']; // lowercase names that get the admin tab
 
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -676,6 +694,7 @@ window.addEventListener('firebase-ready', async () => {
 
 async function bootApp() {
   await loadPlayerData();
+  await loadStatsData();
   document.getElementById('loading-overlay').classList.add('hidden');
   document.getElementById('nav-user-label').textContent = currentUser;
   if (ADMIN_NAMES.includes(currentUser.toLowerCase())) {
@@ -1225,82 +1244,66 @@ window.openQueueModal = async function(rk) {
   }
 
   try {
-    // ── YOUR RAPIDAPI KEY ─────────────────────────────────────────
-    const RAPID_KEY = '65a7e2a60amsh5c8551ded8d453fp157b05jsn09e7c4199a21';
-    // ─────────────────────────────────────────────────────────────
-
-    const playerName = encodeURIComponent(p.name);
-    const statsRes   = await fetch(
-      `https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com/getNFLPlayerInfo?playerName=${playerName}&statsToGet=true&season=2024`,
-      {
-        headers: {
-          'x-rapidapi-host': 'tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com',
-          'x-rapidapi-key':  RAPID_KEY
-        }
-      }
-    );
-    if (!statsRes.ok) throw new Error(`API error ${statsRes.status}`);
-    const statsData = await statsRes.json();
-
-    // Tank01 returns body as array or object
-    const body    = statsData.body;
-    const players = Array.isArray(body) ? body : (body ? [body] : []);
-    if (!players.length) throw new Error('Player not found');
-
-    // Best match by name
+    // Look up player in stats CSV by name (fuzzy match)
     const nameLower = p.name.toLowerCase().replace(/[^a-z ]/g,'');
-    const player    = players.find(pl => {
-      const full = ((pl.longName || pl.playerName || '')).toLowerCase().replace(/[^a-z ]/g,'');
-      return full === nameLower || (full.includes(nameLower.split(' ')[0]) && full.includes(nameLower.split(' ').slice(-1)[0]));
-    }) || players[0];
+    const stat = STATS_DATA.find(s => {
+      const sName = (s.name || '').toLowerCase().replace(/[^a-z ]/g,'');
+      return sName === nameLower ||
+        (sName.includes(nameLower.split(' ')[0]) &&
+         sName.includes(nameLower.split(' ').slice(-1)[0]));
+    });
 
-    const stats  = player.stats || {};
-    const s2024  = stats['2024'] || stats;
+    if (!stat) throw new Error('Not found in 2025 stats');
 
     // Build display stats by position
     let statDefs = [];
     if (p.pos === 'QB') {
       statDefs = [
-        { key: 'passYds',   label: 'PASS YDS' },
-        { key: 'passTD',    label: 'PASS TD'  },
-        { key: 'int',       label: 'INT'       },
-        { key: 'qbr',       label: 'QBR', fmt: v => parseFloat(v).toFixed(1) },
-        { key: 'rushYds',   label: 'RUSH YDS' },
-        { key: 'rushTD',    label: 'RUSH TD'  },
+        { key: 'age',     label: 'AGE'      },
+        { key: 'gp',      label: 'GP'       },
+        { key: 'passYds', label: 'PASS YDS' },
+        { key: 'passTD',  label: 'PASS TD'  },
+        { key: 'int',     label: 'INT'      },
+        { key: 'rushYds', label: 'RUSH YDS' },
+        { key: 'rushTD',  label: 'RUSH TD'  },
       ];
     } else if (p.pos === 'RB') {
       statDefs = [
-        { key: 'rushYds',   label: 'RUSH YDS' },
-        { key: 'rushTD',    label: 'RUSH TD'  },
-        { key: 'carries',   label: 'ATT'       },
-        { key: 'ypc',       label: 'YPC', fmt: v => parseFloat(v).toFixed(1) },
-        { key: 'recYds',    label: 'REC YDS'  },
-        { key: 'recTD',     label: 'REC TD'   },
-        { key: 'rec',       label: 'REC'       },
-        { key: 'targets',   label: 'TGT'       },
+        { key: 'age',     label: 'AGE'      },
+        { key: 'gp',      label: 'GP'       },
+        { key: 'rushYds', label: 'RUSH YDS' },
+        { key: 'rushTD',  label: 'RUSH TD'  },
+        { key: 'carries', label: 'ATT'      },
+        { key: 'ypc',     label: 'YPC'      },
+        { key: 'rec',     label: 'REC'      },
+        { key: 'targets', label: 'TGT'      },
+        { key: 'recYds',  label: 'REC YDS'  },
+        { key: 'pprPts',  label: 'PPR PTS'  },
       ];
     } else if (p.pos === 'WR' || p.pos === 'TE') {
       statDefs = [
-        { key: 'recYds',    label: 'REC YDS'  },
-        { key: 'recTD',     label: 'TD'        },
-        { key: 'rec',       label: 'REC'       },
-        { key: 'targets',   label: 'TGT'       },
-        { key: 'ypr',       label: 'YPR', fmt: v => parseFloat(v).toFixed(1) },
-        { key: 'rushYds',   label: 'RUSH YDS' },
+        { key: 'age',     label: 'AGE'      },
+        { key: 'gp',      label: 'GP'       },
+        { key: 'recYds',  label: 'REC YDS'  },
+        { key: 'recTD',   label: 'TD'       },
+        { key: 'rec',     label: 'REC'      },
+        { key: 'targets', label: 'TGT'      },
+        { key: 'ypr',     label: 'YPR'      },
+        { key: 'rushYds', label: 'RUSH YDS' },
+        { key: 'pprPts',  label: 'PPR PTS'  },
       ];
     }
 
-    const src = s2024;
     const boxes = statDefs
-      .filter(s => src[s.key] !== undefined && src[s.key] !== null && src[s.key] !== '')
+      .filter(s => stat[s.key] !== undefined && stat[s.key] !== '' && stat[s.key] !== '0' || s.key === 'gp')
       .map(s => {
-        const raw = src[s.key];
-        const val = s.fmt ? s.fmt(raw) : raw;
-        return `<div class="stat-box"><div class="stat-val">${val}</div><div class="stat-lbl">${s.label}</div></div>`;
+        const val = parseFloat(stat[s.key]);
+        const display = isNaN(val) ? '—' : (Number.isInteger(val) ? val : val.toFixed(1));
+        return `<div class="stat-box"><div class="stat-val">${display}</div><div class="stat-lbl">${s.label}</div></div>`;
       }).join('');
 
-    document.getElementById('modal-stats-grid').innerHTML = boxes || '<span style="font-size:.78rem;color:var(--dimmer)">No stat data for 2024.</span>';
-    document.getElementById('modal-stats-note').textContent = `Source: Tank01/RapidAPI · 2024 NFL Season`;
+    document.getElementById('modal-stats-grid').innerHTML = boxes || '<span style="font-size:.78rem;color:var(--dimmer)">No stats available.</span>';
+    document.getElementById('modal-stats-note').textContent = `Source: Pro Football Reference · 2025 Season`;
     document.getElementById('modal-stats-loading').style.display = 'none';
     document.getElementById('modal-stats-content').style.display = '';
 
