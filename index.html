@@ -1736,15 +1736,21 @@ window.updateAdminPickTarget = function() {
     return;
   }
 
-  // Snake: round 1,3,5... left-to-right; round 2,4,6... right-to-left
-  // Match renderBoard which uses r%2===0 for left-to-right (r is 0-indexed, so round 1 = r=0 = even)
-  const leftToRight = round % 2 === 1; // round 1,3,5 go left→right
-  const col         = leftToRight ? (pos - 1) : (numDrafters - pos);
-  const overallPick = (round - 1) * numDrafters + col + 1;
+  // "Pick in Round" = visual column from left (1=leftmost drafter, N=rightmost)
+  // In odd rounds (→): col = pos-1. In even rounds (←): pick order is reversed but
+  // we interpret "pick in round" as the drafter's visual column position always.
+  const col         = pos - 1; // always visual column, 0-indexed
+  const isLeftToRight = round % 2 === 1;
+  // overall pick number: in left-to-right rounds, col maps directly.
+  // in right-to-left rounds, col still maps to the same drafter but pick order is reversed.
+  // The pick number for a given col in round r (0-indexed) on a right-to-left round:
+  // renderBoard: pNum = r * numDrafters + (numDrafters - 1 - d) + 1 where d is visual col
+  const r           = round - 1; // 0-indexed round
+  const pickCol     = isLeftToRight ? col : (numDrafters - 1 - col);
+  const overallPick = r * numDrafters + pickCol + 1;
   const drafter  = drafters.find(d => d.slot === col);
   const name     = drafter ? drafter.name : `Slot ${col + 1}`;
   const existing = picks[overallPick];
-
   label.style.color = 'var(--amber)';
   label.textContent = `Overall pick #${overallPick} → ${name}${existing ? ` (currently: ${existing.name})` : ''}`;
   window._adminTargetPick    = overallPick;
