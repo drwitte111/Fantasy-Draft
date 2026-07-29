@@ -163,13 +163,22 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.empty-cell{background:var(--field)}
 .pick-cell.on-clock{background:rgba(245,166,35,.12);outline:2px solid var(--amber);outline-offset:-2px}
 /* position-colored filled cells */
-.pick-cell.picked{cursor:default}
-.pick-cell.pos-WR{background:#6b7280;color:#fff}
-.pick-cell.pos-RB{background:#1a56db;color:#fff}
-.pick-cell.pos-QB{background:#c81e1e;color:#fff}
-.pick-cell.pos-TE{background:#057a55;color:#fff}
-.pick-cell.pos-K{background:#e3a008;color:#111}
-.pick-cell.pos-DST{background:#9d174d;color:#fff}
+.pick-cell.picked{cursor:default;position:relative}
+.pick-cell.pos-WR{background-color:#6b7280;color:#fff}
+.pick-cell.pos-RB{background-color:#1a56db;color:#fff}
+.pick-cell.pos-QB{background-color:#c81e1e;color:#fff}
+.pick-cell.pos-TE{background-color:#057a55;color:#fff}
+.pick-cell.pos-K{background-color:#e3a008;color:#111}
+.pick-cell.pos-DST{background-color:#9d174d;color:#fff}
+.pick-cell.picked::after{
+  content:'';position:absolute;inset:0;
+  background-image:var(--cell-logo);
+  background-repeat:no-repeat;
+  background-position:center right -6px;
+  background-size:70px 70px;
+  opacity:.22;
+  pointer-events:none;
+}
 .pick-cell.pos-WR .pick-num,.pick-cell.pos-WR .pick-team,.pick-cell.pos-WR .pick-bye{color:rgba(255,255,255,.65)}
 .pick-cell.pos-RB .pick-num,.pick-cell.pos-RB .pick-team,.pick-cell.pos-RB .pick-bye{color:rgba(255,255,255,.65)}
 .pick-cell.pos-QB .pick-num,.pick-cell.pos-QB .pick-team,.pick-cell.pos-QB .pick-bye{color:rgba(255,255,255,.65)}
@@ -178,8 +187,8 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.pos-DST .pick-num,.pick-cell.pos-DST .pick-team,.pick-cell.pos-DST .pick-bye{color:rgba(255,255,255,.65)}
 #tab-content-board{max-width:100%;padding:1rem 1rem}
 .pick-num{font-size:.58rem;margin-bottom:.1rem}
-.pick-name{font-size:.78rem;font-weight:700;line-height:1.15;margin-bottom:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pick-meta{display:flex;gap:.2rem;align-items:center;white-space:nowrap;overflow:hidden}
+.pick-name{font-size:.78rem;font-weight:700;line-height:1.2;margin-bottom:.15rem}
+.pick-meta{display:flex;gap:.2rem;flex-wrap:wrap;align-items:center}
 .pick-team{font-size:.58rem}
 .pick-bye{font-size:.58rem}
 .drafter-chip{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:.25rem}
@@ -1001,21 +1010,19 @@ function renderBoard() {
       const color   = `var(--d${d % 16})`; // always visual column, matches header
 
       if (pick) {
-        const darkText = pick.pos === 'K';
+        const darkText  = pick.pos === 'K';
         const nameColor = darkText ? '#111' : '#fff';
         const pickLogo  = pick.team && pick.team !== 'FA' && pick.team !== '—' ? espnLogoUrl(pick.team) : '';
-        html += `<td class="pick-cell picked pos-${pick.pos}" style="border-left:4px solid ${color}">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.2rem">
-            <div style="flex:1;min-width:0">
-              <div class="pick-num">#${pNum}</div>
-              <div class="pick-name" style="color:${nameColor}">${pick.name}</div>
-              <div class="pick-meta">
-                <span style="font-family:'Oswald',sans-serif;font-size:.68rem;font-weight:700;opacity:.75;color:${nameColor}">${pick.pos}</span>
-                <span class="pick-team">${pick.team}</span>
-                <span class="pick-bye">Bye ${pick.bye}</span>
-              </div>
+        const logoVar   = pickLogo ? `--cell-logo:url('${pickLogo}');` : '--cell-logo:none;';
+        html += `<td class="pick-cell picked pos-${pick.pos}" style="border-left:4px solid ${color};${logoVar}">
+          <div style="position:relative;z-index:1">
+            <div class="pick-num">#${pNum}</div>
+            <div class="pick-name" style="color:${nameColor}">${pick.name}</div>
+            <div class="pick-meta">
+              <span style="font-family:'Oswald',sans-serif;font-size:.68rem;font-weight:700;opacity:.75;color:${nameColor}">${pick.pos}</span>
+              <span class="pick-team">${pick.team}</span>
+              <span class="pick-bye">Bye ${pick.bye}</span>
             </div>
-            ${pickLogo ? `<img src="${pickLogo}" alt="${pick.team}" style="width:32px;height:32px;object-fit:contain;opacity:.85;flex-shrink:0" onerror="this.style.display='none'">` : ''}
           </div>
         </td>`;
       } else if (isNow) {
