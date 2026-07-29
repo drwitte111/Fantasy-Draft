@@ -79,7 +79,7 @@
   --picked-bg: rgba(180,30,30,0.18);
   --picked-text: #e04040;
   --radius:  4px;
-  --rb:#3b82f6; --wr:#f5a623; --qb:#ef4444; --te:#22c55e; --k:#a855f7; --dst:#6d28d9;
+  --rb:#3b82f6; --wr:#f5a623; --qb:#ef4444; --te:#22c55e; --k:#a855f7; --dst:#db2777;
   --d0:#f5a623;--d1:#3b82f6;--d2:#22c55e;--d3:#ef4444;--d4:#a855f7;--d5:#ec4899;
   --d6:#14b8a6;--d7:#f97316;--d8:#84cc16;--d9:#8b5cf6;--d10:#06b6d4;--d11:#fb923c;
   --d12:#10b981;--d13:#6366f1;--d14:#f43f5e;--d15:#eab308;
@@ -169,7 +169,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.pos-QB{background-color:#c81e1e;color:#fff}
 .pick-cell.pos-TE{background-color:#057a55;color:#fff}
 .pick-cell.pos-K{background-color:#e3a008;color:#111}
-.pick-cell.pos-DST{background-color:#6d28d9;color:#fff}
+.pick-cell.pos-DST{background-color:#db2777;color:#fff}
 .pick-cell.picked::after{
   content:'';
   position:absolute;
@@ -545,6 +545,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
         </div>
         <div class="admin-row">
           <button class="btn-sm" onclick="adminEditPick()">SAVE EDIT</button>
+          <button class="btn-sm" onclick="openAdminEditWriteIn()">+ WRITE-IN</button>
         </div>
         <div class="feedback" id="fb-edit"></div>
       </div>
@@ -1222,12 +1223,27 @@ window.openWriteInModal = function() {
   document.getElementById('writein-name').value = '';
   document.getElementById('modal-writein').classList.remove('hidden');
 };
+window.openAdminEditWriteIn = function() {
+  if (!adminEditPickNum) { document.getElementById('fb-edit').textContent = 'Select a pick to edit first.'; return; }
+  document.getElementById('writein-name').value = '';
+  document.getElementById('writein-pos').value  = 'WR';
+  // Reuse write-in modal but wire confirm to edit path
+  window._writeInTarget = 'edit';
+  document.getElementById('modal-writein').classList.remove('hidden');
+};
+
 window.confirmWriteIn = function() {
   const name = document.getElementById('writein-name').value.trim();
   const pos  = document.getElementById('writein-pos').value;
   if (!name) return;
   closeModal('modal-writein');
-  openPickConfirm({ name, pos, team: '—', bye: '—', rk: null });
+  if (window._writeInTarget === 'edit') {
+    window._adminEditPlayer = { name, pos, team: '—', bye: '—', rk: null };
+    document.getElementById('admin-edit-search').value = name;
+    window._writeInTarget = null;
+  } else {
+    openPickConfirm({ name, pos, team: '—', bye: '—', rk: null });
+  }
 };
 
 // ── RESEARCH ───────────────────────────────────────────────────────────────
@@ -1689,24 +1705,23 @@ window.adminSaveOrder = async function() {
 
 window.adminReversePick = function() {
   if (!draftState) return;
-  const currentPick = draftState.currentPick || 1;
-  // Find the last actual pick made (may be currentPick-1 or earlier if clock overshot)
-  const madeNums = Object.keys(picks).map(Number).sort((a,b) => b - a);
+  const madeNums = Object.keys(draftState.picks || {}).map(Number).sort((a,b) => b - a);
   const lastPickNum = madeNums[0];
   if (!lastPickNum) { document.getElementById('fb-setup').textContent = 'No picks to reverse.'; return; }
-  const p = picks[lastPickNum];
+  const p = (draftState.picks || {})[lastPickNum];
   document.getElementById('modal-reverse-body').textContent =
     `Remove pick #${lastPickNum}: ${p ? p.name : '?'} and move clock back?`;
   document.getElementById('modal-reverse').classList.remove('hidden');
 };
 window.confirmReverse = async function() {
-  const madeNums = Object.keys(picks).map(Number).sort((a,b) => b - a);
+  closeModal('modal-reverse');
+  if (!draftState) return;
+  const madeNums = Object.keys(draftState.picks || {}).map(Number).sort((a,b) => b - a);
   const lastPickNum = madeNums[0];
-  if (!lastPickNum) { closeModal('modal-reverse'); return; }
-  const newPicks = { ...picks };
+  if (!lastPickNum) return;
+  const newPicks = { ...(draftState.picks || {}) };
   delete newPicks[lastPickNum];
   await saveDraftFields({ currentPick: lastPickNum, picks: newPicks, status: 'active' });
-  closeModal('modal-reverse');
 };
 
 function renderAdminPickFor() {
