@@ -1746,26 +1746,23 @@ window.updateAdminPickTarget = function() {
 
   label.style.color = 'var(--amber)';
   label.textContent = `Overall pick #${overallPick} → ${name}${existing ? ` (currently: ${existing.name})` : ''}`;
-  label._overallPick = overallPick;
-  label._drafter     = name;
+  window._adminTargetPick    = overallPick;
+  window._adminTargetDrafter = name;
 };
 
 window.adminMakePick = async function() {
-  const p     = window._adminPickPlayer;
-  const label = document.getElementById('admin-pick-target-label');
-  if (!p) { document.getElementById('fb-pick-for').textContent = 'Select a player first.'; return; }
-  if (!label._overallPick) { document.getElementById('fb-pick-for').textContent = 'Set round and pick number first.'; return; }
+  const p      = window._adminPickPlayer;
+  const pickNum = window._adminTargetPick;
+  const drafter = window._adminTargetDrafter;
+  if (!p)       { document.getElementById('fb-pick-for').textContent = 'Select a player first.'; return; }
+  if (!pickNum) { document.getElementById('fb-pick-for').textContent = 'Set round and pick number first.'; return; }
 
-  const pickNum  = label._overallPick;
-  const drafter  = label._drafter;
   const newPick  = { name: p.name, pos: p.pos, team: p.team, bye: p.bye, drafter, rk: p.rk || null };
   const newPicks = { ...picks, [pickNum]: newPick };
 
-  // Advance clock to next unfilled pick if this pick is at or before current clock
-  const total       = (draftState.numDrafters || 10) * (draftState.numRounds || 15);
-  let   nextClock   = draftState.currentPick || 1;
+  const total     = (draftState.numDrafters || 10) * (draftState.numRounds || 15);
+  let   nextClock = draftState.currentPick || 1;
   if (pickNum >= nextClock) {
-    // Find next unfilled pick after this one
     nextClock = pickNum + 1;
     while (nextClock <= total && newPicks[nextClock]) nextClock++;
   }
@@ -1776,9 +1773,10 @@ window.adminMakePick = async function() {
 
   document.getElementById('fb-pick-for').textContent = `Pick #${pickNum} set to ${p.name} for ${drafter}!`;
   document.getElementById('admin-pick-search').value = '';
-  window._adminPickPlayer = null;
-  label.textContent = '';
-  label._overallPick = null;
+  document.getElementById('admin-pick-target-label').textContent = '';
+  window._adminPickPlayer    = null;
+  window._adminTargetPick    = null;
+  window._adminTargetDrafter = null;
   setTimeout(() => document.getElementById('fb-pick-for').textContent = '', 3000);
 };
 
