@@ -1248,7 +1248,6 @@ window.toggleHidePicked = function() {
 };
 
 // ── ESPN TEAM LOGO MAP ────────────────────────────────────────────────────
-// Maps PFR abbreviations → ESPN CDN abbreviations (where they differ)
 const ESPN_TEAM_MAP = {
   'ARZ':'ari','ATL':'atl','BAL':'bal','BUF':'buf','CAR':'car','CHI':'chi',
   'CIN':'cin','CLE':'cle','DAL':'dal','DEN':'den','DET':'det','GB':'gb',
@@ -1289,11 +1288,10 @@ function renderResearch() {
             <span class="p-bye">Bye ${p.bye}</span>
           </div>
         </div>
-        ${logoUrl ? `<img src="${logoUrl}" alt="${p.team}" style="width:36px;height:36px;object-fit:contain;opacity:${isPicked ? '.25' : '.9'};flex-shrink:0" onerror="this.style.display='none'">` : ''}
+        ${logoUrl ? `<img src="${logoUrl}" alt="${p.team}" style="width:36px;height:36px;object-fit:contain;opacity:${isPicked?'.25':'.9'};flex-shrink:0" onerror="this.style.display='none'">` : ''}
       </div>
       ${isPicked ? '<div class="p-picked-label">PICKED</div>' : ''}
     </div>`;
-  }).join('');
   }).join('');
 }
 
@@ -1379,10 +1377,10 @@ window.openQueueModal = async function(rk) {
   document.getElementById('modal-player-photo').src = '';
   document.getElementById('modal-photo-placeholder').style.display = '';
   document.getElementById('modal-queue-name').textContent = p.name;
-  const logoUrl = p.team && p.team !== 'FA' ? espnLogoUrl(p.team) : '';
+  const _logoUrl = p.team && p.team !== 'FA' ? espnLogoUrl(p.team) : '';
   document.getElementById('modal-queue-meta').innerHTML =
     `<span class="badge ${p.pos}">${p.pos}</span>`
-    + (logoUrl ? `<img src="${logoUrl}" alt="${p.team}" style="width:22px;height:22px;object-fit:contain;opacity:.9" onerror="this.style.display='none'">` : '')
+    + (_logoUrl ? `<img src="${_logoUrl}" alt="${p.team}" style="width:20px;height:20px;object-fit:contain;opacity:.9" onerror="this.style.display='none'">` : '')
     + ` <span style="color:var(--muted)">${p.team} · Bye ${p.bye} · Rank #${p.rk}</span>`;
   document.getElementById('modal-stats-loading').style.display = '';
   document.getElementById('modal-stats-content').style.display = 'none';
