@@ -155,7 +155,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .join-label{font-family:'Oswald',sans-serif;font-size:.9rem;color:var(--muted);letter-spacing:.06em}
 .join-name-display{font-family:'Oswald',sans-serif;font-size:.95rem;color:var(--amber)}
 .board-wrap{overflow:auto;max-height:calc(100dvh - 140px);padding-bottom:1rem;width:100%}
-.draft-table{border-collapse:collapse;width:max-content;min-width:100%}
+.draft-table{border-collapse:collapse;width:auto;table-layout:auto}
 .draft-table th{font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:.08em;color:var(--muted);background:var(--panel);padding:.5rem .4rem;text-align:center;position:sticky;top:0;border-bottom:1px solid var(--line);white-space:nowrap;z-index:10;overflow:hidden;text-overflow:ellipsis}
 .draft-table td{border:1px solid var(--line);vertical-align:top;width:auto}
 .round-label{font-family:'Oswald',sans-serif;font-size:.82rem;color:var(--muted);padding:.5rem .4rem;text-align:center;background:var(--panel);white-space:nowrap;position:sticky;left:0;z-index:5;width:42px}
@@ -171,16 +171,16 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.pos-K{background-color:#e3a008;color:#111}
 .pick-cell.pos-DST{background-color:#9d174d;color:#fff}
 .pick-cell.picked::after{
-  content:'';position:absolute;
-  top:50%;right:4px;
-  transform:translateY(-50%);
-  width:56px;height:56px;
+  content:'';
+  position:absolute;
+  inset:0;
   background-image:var(--cell-logo);
   background-repeat:no-repeat;
-  background-position:center;
-  background-size:contain;
-  opacity:.25;
+  background-position:center center;
+  background-size:85% auto;
+  opacity:.18;
   pointer-events:none;
+  z-index:0;
 }
 .pick-cell.pos-WR .pick-num,.pick-cell.pos-WR .pick-team,.pick-cell.pos-WR .pick-bye{color:rgba(255,255,255,.65)}
 .pick-cell.pos-RB .pick-num,.pick-cell.pos-RB .pick-team,.pick-cell.pos-RB .pick-bye{color:rgba(255,255,255,.65)}
@@ -188,7 +188,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.pos-TE .pick-num,.pick-cell.pos-TE .pick-team,.pick-cell.pos-TE .pick-bye{color:rgba(255,255,255,.65)}
 .pick-cell.pos-K  .pick-num,.pick-cell.pos-K  .pick-team,.pick-cell.pos-K  .pick-bye{color:rgba(0,0,0,.55)}
 .pick-cell.pos-DST .pick-num,.pick-cell.pos-DST .pick-team,.pick-cell.pos-DST .pick-bye{color:rgba(255,255,255,.65)}
-#tab-content-board{max-width:100%;padding:1rem 1rem}
+#tab-content-board{max-width:none;padding:1rem 1rem}
 .pick-num{font-size:.58rem;margin-bottom:.1rem}
 .pick-name{font-size:.78rem;font-weight:700;line-height:1.2;margin-bottom:.15rem}
 .pick-meta{display:flex;gap:.2rem;flex-wrap:wrap;align-items:center}
