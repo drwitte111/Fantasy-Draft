@@ -267,6 +267,13 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
   .nav-brand{font-size:1rem}
   .login-card{padding:2rem 1.25rem}
 }
+.depth-pos-block{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:5px;padding:.5rem .65rem}
+.depth-pos-label{font-family:'Oswald',sans-serif;font-size:.7rem;letter-spacing:.08em;margin-bottom:.4rem}
+.depth-player-row{display:flex;align-items:center;gap:.4rem;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
+.depth-player-row:last-child{border-bottom:none}
+.depth-player-row.is-this-player{font-weight:700;color:var(--amber)}
+.depth-player-row.is-picked{color:var(--picked-text);text-decoration:line-through;opacity:.6}
+.depth-slot{font-family:'Oswald',sans-serif;font-size:.65rem;color:var(--muted);width:14px;flex-shrink:0}
 .stat-box{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:5px;padding:.45rem .6rem;text-align:center}
 .stat-val{font-family:'Oswald',sans-serif;font-size:1.1rem;color:var(--amber);letter-spacing:.04em}
 .stat-lbl{font-size:.6rem;color:var(--muted);letter-spacing:.07em;margin-top:.1rem}
@@ -563,6 +570,11 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
         <div id="modal-stats-note" style="font-size:.68rem;color:var(--dimmer);margin-top:.5rem;font-style:italic"></div>
       </div>
       <div id="modal-stats-error" style="display:none;font-size:.78rem;color:var(--dimmer);font-style:italic"></div>
+    </div>
+    <!-- Depth Chart Panel -->
+    <div id="modal-depth-panel" style="display:none;margin-bottom:1.25rem">
+      <div style="font-size:.68rem;letter-spacing:.08em;color:var(--muted);margin-bottom:.6rem;font-family:'Oswald',sans-serif" id="modal-depth-title">TEAM DEPTH CHART</div>
+      <div id="modal-depth-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem"></div>
     </div>
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('modal-queue')">CLOSE</button>
@@ -1281,6 +1293,53 @@ async function fetchWikiPhoto(playerName) {
   }
 }
 
+// ── DEPTH CHART ────────────────────────────────────────────────────────────
+function renderDepthChart(player) {
+  const panel = document.getElementById('modal-depth-panel');
+  const grid  = document.getElementById('modal-depth-grid');
+  const title = document.getElementById('modal-depth-title');
+
+  if (!player.team || player.team === '—' || player.team === 'FA') {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Group all players on this team by position, sorted by rank
+  const teamPlayers = PLAYER_DATA.filter(p => p.team === player.team);
+  if (!teamPlayers.length) { panel.style.display = 'none'; return; }
+
+  // Build position groups — only fantasy-relevant positions
+  const posOrder = ['QB','RB','WR','TE','K','DST'];
+  const groups   = {};
+  posOrder.forEach(pos => {
+    const inPos = teamPlayers.filter(p => p.pos === pos).sort((a,b) => a.rk - b.rk);
+    if (inPos.length) groups[pos] = inPos;
+  });
+
+  if (!Object.keys(groups).length) { panel.style.display = 'none'; return; }
+
+  const taken = pickedNames();
+  title.textContent = `${player.team} DEPTH CHART (RANKINGS-BASED)`;
+
+  grid.innerHTML = Object.entries(groups).map(([pos, players]) => {
+    const rows = players.map((p, i) => {
+      const isThis   = p.name.toLowerCase() === player.name.toLowerCase();
+      const isPicked = taken.has(p.name.toLowerCase());
+      return `<div class="depth-player-row${isThis ? ' is-this-player' : ''}${isPicked ? ' is-picked' : ''}">
+        <span class="depth-slot">${i+1}</span>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${p.name}</span>
+        <span style="font-size:.62rem;color:var(--dimmer)">#${p.rk}</span>
+      </div>`;
+    }).join('');
+    return `<div class="depth-pos-block">
+      <div class="depth-pos-label badge ${pos}">${pos}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  panel.style.display = '';
+}
+
 window.openQueueModal = async function(rk) {
   const p = PLAYER_DATA.find(pl => pl.rk === rk);
   if (!p) return;
@@ -1296,7 +1355,11 @@ window.openQueueModal = async function(rk) {
   document.getElementById('modal-stats-loading').style.display = '';
   document.getElementById('modal-stats-content').style.display = 'none';
   document.getElementById('modal-stats-error').style.display = 'none';
+  document.getElementById('modal-depth-panel').style.display = 'none';
   document.getElementById('modal-queue').classList.remove('hidden');
+
+  // Depth chart from CSV — instant, no network call
+  renderDepthChart(p);
 
   // Fetch Wikipedia photo in parallel (don't await — let it load whenever)
   fetchWikiPhoto(p.name);
