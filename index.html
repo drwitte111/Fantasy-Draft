@@ -266,6 +266,11 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
   .player-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
   .nav-brand{font-size:1rem}
   .login-card{padding:2rem 1.25rem}
+  .modal-box{padding:1rem;max-height:92dvh}
+  #modal-player-photo-wrap{width:60px!important;height:76px!important}
+  #modal-stats-grid{grid-template-columns:repeat(auto-fill,minmax(75px,1fr))!important}
+  #modal-depth-grid{grid-template-columns:1fr!important}
+  .stat-val{font-size:.95rem}
 }
 .depth-pos-block{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:5px;padding:.5rem .65rem}
 .depth-pos-label{font-family:'Oswald',sans-serif;font-size:.7rem;letter-spacing:.08em;margin-bottom:.4rem}
@@ -277,13 +282,13 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .stat-box{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:5px;padding:.45rem .6rem;text-align:center}
 .stat-val{font-family:'Oswald',sans-serif;font-size:1.1rem;color:var(--amber);letter-spacing:.04em}
 .stat-lbl{font-size:.6rem;color:var(--muted);letter-spacing:.07em;margin-top:.1rem}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:500;padding:1.5rem}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:500;padding:1rem}
 .modal-overlay.hidden{display:none}
-.modal-box{background:var(--panel);border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:2rem;width:100%;max-width:420px}
+.modal-box{background:var(--panel);border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:1.5rem;width:100%;max-width:540px;max-height:90dvh;overflow-y:auto;display:flex;flex-direction:column}
 .modal-title{font-family:'Oswald',sans-serif;font-size:1.3rem;color:var(--amber);letter-spacing:.06em;margin-bottom:.5rem}
 .modal-body{font-size:.9rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.55}
-.modal-actions{display:flex;gap:.75rem;justify-content:flex-end}
-.modal-player-info{background:rgba(255,255,255,.04);border-radius:6px;padding:.85rem 1rem;margin-bottom:1.5rem}
+.modal-actions{display:flex;gap:.75rem;justify-content:flex-end;position:sticky;bottom:0;background:var(--panel);padding-top:.75rem;margin-top:auto}
+.modal-player-info{background:rgba(255,255,255,.04);border-radius:6px;padding:.85rem 1rem;margin-bottom:1.25rem}
 .modal-player-name{font-weight:600;font-size:1.05rem;margin-bottom:.35rem}
 .modal-player-meta{display:flex;gap:.5rem;align-items:center}
 
@@ -574,7 +579,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
     <!-- Depth Chart Panel -->
     <div id="modal-depth-panel" style="display:none;margin-bottom:1.25rem">
       <div style="font-size:.68rem;letter-spacing:.08em;color:var(--muted);margin-bottom:.6rem;font-family:'Oswald',sans-serif" id="modal-depth-title">TEAM DEPTH CHART</div>
-      <div id="modal-depth-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem"></div>
+      <div id="modal-depth-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem"></div>
     </div>
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('modal-queue')">CLOSE</button>
