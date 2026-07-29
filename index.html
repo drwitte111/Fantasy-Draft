@@ -410,7 +410,10 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
           <div class="clock-pick" id="on-clock-pick-display"></div>
         </div>
         <div class="queued-section" id="queued-section" style="display:none">
-          <div class="queued-title">QUEUED FROM RESEARCH</div>
+          <div class="queued-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span id="queued-title-text">MY QUEUE</span>
+            <button class="btn-sm danger" onclick="clearQueue()" style="font-size:.68rem;padding:.2rem .5rem">CLEAR ALL</button>
+          </div>
           <div id="queued-player-wrap"></div>
         </div>
         <div class="section-title" style="margin-bottom:.5rem;font-size:1rem">SELECT A PLAYER</div>
@@ -685,7 +688,7 @@ let onlineUsers    = new Set(); // names of currently online users
 
 let researchPos    = 'ALL';
 let hidePicked     = false;
-let queuedPlayer   = null;
+let queuedPlayers  = [];   // ordered queue list
 let pendingPick    = null;
 let pickSugIdx     = -1;
 let adminPickSugIdx = -1;
@@ -749,7 +752,7 @@ window.doLogout = function() {
   clearPresence();
   localStorage.removeItem('draftUser');
   currentUser = null; draftState = null; drafters = []; picks = {};
-  mySlot = null; queuedPlayer = null; activeDraftId = null; viewingDraftId = null;
+  mySlot = null; queuedPlayers = []; activeDraftId = null; viewingDraftId = null;
   onlineUsers = new Set();
   showPage('login');
 };
@@ -1074,25 +1077,33 @@ function updatePickTab() {
     notEl.textContent = `Waiting on ${onName} — Pick #${currentPick}, Round ${round}`;
   }
 
+  // Auto-remove picked players from queue
+  const taken = pickedNames();
+  queuedPlayers = queuedPlayers.filter(p => !taken.has(p.name.toLowerCase()));
+
   // Show queue regardless of whose turn it is
   const queueWrap = document.getElementById('queued-section');
   const queueEl   = document.getElementById('queued-player-wrap');
-  if (queuedPlayer) {
+  if (queuedPlayers.length) {
     queueWrap.style.display = '';
-    // Only show PICK THIS button when it's actually the user's turn
-    const pickBtn = isMyTurn
-      ? `<button class="btn-sm green" onclick='openPickConfirm(${JSON.stringify(queuedPlayer)})'>PICK THIS</button>`
-      : `<span style="font-size:.72rem;color:var(--muted);font-style:italic">Queued</span>`;
-    queueEl.innerHTML = `
-      <div class="queued-player">
+    document.getElementById('queued-title-text').textContent = `MY QUEUE (${queuedPlayers.length})`;
+    queueEl.innerHTML = queuedPlayers.map((p, i) => {
+      const isFirst   = i === 0;
+      const pickBtn   = isMyTurn && isFirst
+        ? `<button class="btn-sm green" onclick='openPickConfirm(${JSON.stringify(p)})'>PICK</button>`
+        : isMyTurn
+          ? `<button class="btn-sm" onclick="moveQueueToTop(${i})" style="font-size:.7rem">↑ USE</button>`
+          : '';
+      return `<div class="queued-player">
+        <div style="font-family:'Oswald',sans-serif;font-size:.75rem;color:var(--muted);flex-shrink:0;width:18px">${i+1}</div>
         <div class="queued-info">
-          <div class="queued-name">${queuedPlayer.name}</div>
-          <div class="queued-meta">${queuedPlayer.pos} · ${queuedPlayer.team} · Bye ${queuedPlayer.bye}</div>
+          <div class="queued-name">${p.name}</div>
+          <div class="queued-meta">${p.pos} · ${p.team} · Bye ${p.bye}</div>
         </div>
         ${pickBtn}
-        <button class="btn-sm danger" onclick="clearQueue()">✕</button>
+        <button class="btn-sm danger" onclick="removeFromQueue(${i})" style="padding:.25rem .45rem">✕</button>
       </div>`;
-    // Move queue section to top of whichever panel is visible
+    }).join('');
     if (!isMyTurn) notEl.before(queueWrap);
     else onEl.prepend(queueWrap);
   } else {
@@ -1100,7 +1111,9 @@ function updatePickTab() {
   }
 }
 
-window.clearQueue = function() { queuedPlayer = null; updatePickTab(); };
+window.removeFromQueue  = function(i) { queuedPlayers.splice(i, 1); updatePickTab(); };
+window.moveQueueToTop   = function(i) { const p = queuedPlayers.splice(i, 1)[0]; queuedPlayers.unshift(p); updatePickTab(); };
+window.clearQueue       = function() { queuedPlayers = []; updatePickTab(); };
 
 // ── PICK TYPEAHEAD ─────────────────────────────────────────────────────────
 const pickedNames = () => new Set(Object.values(picks).map(p => p.name.toLowerCase()));
@@ -1161,7 +1174,9 @@ window.submitConfirmedPick = async function() {
   const fields   = { picks: newPicks, currentPick: nextPick };
   if (nextPick > total) fields.status = 'complete';
   await saveDraftFields(fields);
-  pendingPick = null; queuedPlayer = null;
+  pendingPick = null;
+  // Remove the picked player from queue if present
+  queuedPlayers = queuedPlayers.filter(p => p.name.toLowerCase() !== newPick.name.toLowerCase());
   closeModal('modal-confirm-pick');
   document.getElementById('pick-search').value = '';
 };
@@ -1365,7 +1380,11 @@ window.openQueueModal = async function(rk) {
   }
 };
 window.confirmQueue = function() {
-  queuedPlayer = window._pendingQueue;
+  const p = window._pendingQueue;
+  // Don't add duplicates
+  if (!queuedPlayers.find(q => q.name.toLowerCase() === p.name.toLowerCase())) {
+    queuedPlayers.push(p);
+  }
   closeModal('modal-queue');
   updatePickTab();
   showTab('pick');
