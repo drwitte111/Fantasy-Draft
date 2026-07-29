@@ -1247,6 +1247,21 @@ window.toggleHidePicked = function() {
   filterResearch();
 };
 
+// ── ESPN TEAM LOGO MAP ────────────────────────────────────────────────────
+// Maps PFR abbreviations → ESPN CDN abbreviations (where they differ)
+const ESPN_TEAM_MAP = {
+  'ARZ':'ari','ATL':'atl','BAL':'bal','BUF':'buf','CAR':'car','CHI':'chi',
+  'CIN':'cin','CLE':'cle','DAL':'dal','DEN':'den','DET':'det','GB':'gb',
+  'HOU':'hou','IND':'ind','JAC':'jax','JAX':'jax','KC':'kc','LAC':'lac',
+  'LAR':'lar','LV':'lv','MIA':'mia','MIN':'min','NE':'ne','NO':'no',
+  'NYG':'nyg','NYJ':'nyj','PHI':'phi','PIT':'pit','SEA':'sea','SF':'sf',
+  'TB':'tb','TEN':'ten','WAS':'wsh','ARI':'ari',
+};
+function espnLogoUrl(team) {
+  const abbr = ESPN_TEAM_MAP[team] || team.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${abbr}.png`;
+}
+
 function renderResearch() {
   const grid  = document.getElementById('research-grid');
   const taken = pickedNames();
@@ -1260,18 +1275,25 @@ function renderResearch() {
 
   grid.innerHTML = PLAYER_DATA.map(p => {
     const isPicked = taken.has(p.name.toLowerCase());
+    const logoUrl  = p.team && p.team !== 'FA' ? espnLogoUrl(p.team) : '';
     return `<div class="player-card${isPicked ? ' is-picked' : ''}"
       data-pos="${p.pos}" data-name="${p.name}" data-team="${p.team}"
       onclick="${isPicked ? '' : `openQueueModal(${p.rk})`}">
-      <div class="p-rank">#${p.rk} · ${p.posRank}</div>
-      <div class="p-name">${p.name}</div>
-      <div class="p-meta">
-        <span class="badge ${p.pos}">${p.pos}</span>
-        <span class="p-team">${p.team}</span>
-        <span class="p-bye">Bye ${p.bye}</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.4rem">
+        <div style="flex:1;min-width:0">
+          <div class="p-rank">#${p.rk} · ${p.posRank}</div>
+          <div class="p-name">${p.name}</div>
+          <div class="p-meta">
+            <span class="badge ${p.pos}">${p.pos}</span>
+            <span class="p-team">${p.team}</span>
+            <span class="p-bye">Bye ${p.bye}</span>
+          </div>
+        </div>
+        ${logoUrl ? `<img src="${logoUrl}" alt="${p.team}" style="width:36px;height:36px;object-fit:contain;opacity:${isPicked ? '.25' : '.9'};flex-shrink:0" onerror="this.style.display='none'">` : ''}
       </div>
       ${isPicked ? '<div class="p-picked-label">PICKED</div>' : ''}
     </div>`;
+  }).join('');
   }).join('');
 }
 
@@ -1357,8 +1379,11 @@ window.openQueueModal = async function(rk) {
   document.getElementById('modal-player-photo').src = '';
   document.getElementById('modal-photo-placeholder').style.display = '';
   document.getElementById('modal-queue-name').textContent = p.name;
+  const logoUrl = p.team && p.team !== 'FA' ? espnLogoUrl(p.team) : '';
   document.getElementById('modal-queue-meta').innerHTML =
-    `<span class="badge ${p.pos}">${p.pos}</span> <span style="color:var(--muted)">${p.team} · Bye ${p.bye} · Rank #${p.rk}</span>`;
+    `<span class="badge ${p.pos}">${p.pos}</span>`
+    + (logoUrl ? `<img src="${logoUrl}" alt="${p.team}" style="width:22px;height:22px;object-fit:contain;opacity:.9" onerror="this.style.display='none'">` : '')
+    + ` <span style="color:var(--muted)">${p.team} · Bye ${p.bye} · Rank #${p.rk}</span>`;
   document.getElementById('modal-stats-loading').style.display = '';
   document.getElementById('modal-stats-content').style.display = 'none';
   document.getElementById('modal-stats-error').style.display = 'none';
