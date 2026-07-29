@@ -500,10 +500,12 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
       <div class="admin-card">
         <div class="admin-card-title">📌 Make Pick For Drafter</div>
         <div class="admin-row">
-          <select id="admin-pick-for" class="admin-input">
-            <option value="">— Select drafter —</option>
-          </select>
+          <label style="font-size:.78rem;color:var(--muted);width:80px">Round</label>
+          <input id="admin-pick-round" class="admin-input" type="number" min="1" max="25" placeholder="1" style="width:70px;flex:none" oninput="updateAdminPickTarget()">
+          <label style="font-size:.78rem;color:var(--muted);width:110px;text-align:right">Pick in Round</label>
+          <input id="admin-pick-pos" class="admin-input" type="number" min="1" max="16" placeholder="1" style="width:70px;flex:none" oninput="updateAdminPickTarget()">
         </div>
+        <div id="admin-pick-target-label" style="font-size:.8rem;color:var(--amber);margin-bottom:.6rem;font-family:'Oswald',sans-serif;min-height:1.2em"></div>
         <div class="typeahead-wrap" style="margin-bottom:.5rem">
           <input id="admin-pick-search" class="admin-input" type="text" placeholder="Player name…"
             oninput="filterAdminPickSugg()" onkeydown="adminPickKeydown(event)" autocomplete="off">
@@ -1668,10 +1670,77 @@ window.confirmReverse = async function() {
 };
 
 function renderAdminPickFor() {
-  const sel = document.getElementById('admin-pick-for');
-  sel.innerHTML = '<option value="">— Select drafter —</option>' +
-    drafters.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+  // Pre-fill round and pick inputs with current clock position
+  if (draftState) {
+    const numDrafters = draftState.numDrafters || 10;
+    const currentPick = draftState.currentPick || 1;
+    const round       = Math.ceil(currentPick / numDrafters);
+    const posInRound  = ((currentPick - 1) % numDrafters) + 1;
+    document.getElementById('admin-pick-round').value = round;
+    document.getElementById('admin-pick-pos').value   = posInRound;
+    updateAdminPickTarget();
+  }
 }
+
+window.updateAdminPickTarget = function() {
+  if (!draftState) return;
+  const numDrafters = draftState.numDrafters || 10;
+  const numRounds   = draftState.numRounds   || 15;
+  const round       = parseInt(document.getElementById('admin-pick-round').value) || 1;
+  const pos         = parseInt(document.getElementById('admin-pick-pos').value)   || 1;
+  const label       = document.getElementById('admin-pick-target-label');
+
+  if (round < 1 || round > numRounds || pos < 1 || pos > numDrafters) {
+    label.textContent = 'Invalid round/pick';
+    label.style.color = 'var(--danger)';
+    return;
+  }
+
+  // Snake: odd rounds left-to-right, even rounds right-to-left
+  const isEven   = round % 2 === 0;
+  const col      = isEven ? (numDrafters - pos) : (pos - 1);
+  const overallPick = (round - 1) * numDrafters + col + 1;
+  const drafter  = drafters.find(d => d.slot === col);
+  const name     = drafter ? drafter.name : `Slot ${col + 1}`;
+  const existing = picks[overallPick];
+
+  label.style.color = 'var(--amber)';
+  label.textContent = `Overall pick #${overallPick} → ${name}${existing ? ` (currently: ${existing.name})` : ''}`;
+  label._overallPick = overallPick;
+  label._drafter     = name;
+};
+
+window.adminMakePick = async function() {
+  const p     = window._adminPickPlayer;
+  const label = document.getElementById('admin-pick-target-label');
+  if (!p) { document.getElementById('fb-pick-for').textContent = 'Select a player first.'; return; }
+  if (!label._overallPick) { document.getElementById('fb-pick-for').textContent = 'Set round and pick number first.'; return; }
+
+  const pickNum  = label._overallPick;
+  const drafter  = label._drafter;
+  const newPick  = { name: p.name, pos: p.pos, team: p.team, bye: p.bye, drafter, rk: p.rk || null };
+  const newPicks = { ...picks, [pickNum]: newPick };
+
+  // Advance clock to next unfilled pick if this pick is at or before current clock
+  const total       = (draftState.numDrafters || 10) * (draftState.numRounds || 15);
+  let   nextClock   = draftState.currentPick || 1;
+  if (pickNum >= nextClock) {
+    // Find next unfilled pick after this one
+    nextClock = pickNum + 1;
+    while (nextClock <= total && newPicks[nextClock]) nextClock++;
+  }
+
+  const fields = { picks: newPicks, currentPick: Math.min(nextClock, total + 1) };
+  if (nextClock > total) fields.status = 'complete';
+  await saveDraftFields(fields);
+
+  document.getElementById('fb-pick-for').textContent = `Pick #${pickNum} set to ${p.name} for ${drafter}!`;
+  document.getElementById('admin-pick-search').value = '';
+  window._adminPickPlayer = null;
+  label.textContent = '';
+  label._overallPick = null;
+  setTimeout(() => document.getElementById('fb-pick-for').textContent = '', 3000);
+};
 
 window.filterAdminPickSugg = function() {
   const val  = document.getElementById('admin-pick-search').value.trim().toLowerCase();
@@ -1702,23 +1771,6 @@ window.selectAdminPick = function(rk) {
   window._adminPickPlayer = p;
   document.getElementById('admin-pick-search').value = p.name;
   document.getElementById('admin-pick-suggestions').classList.remove('open');
-};
-window.adminMakePick = async function() {
-  const drafter = document.getElementById('admin-pick-for').value;
-  const p = window._adminPickPlayer;
-  if (!drafter || !p) { document.getElementById('fb-pick-for').textContent = 'Select drafter and player.'; return; }
-  const pickNum  = draftState.currentPick;
-  const newPick  = { name: p.name, pos: p.pos, team: p.team, bye: p.bye, drafter, rk: p.rk || null };
-  const newPicks = { ...picks, [pickNum]: newPick };
-  const total    = (draftState.numDrafters || 10) * (draftState.numRounds || 15);
-  const nextPick = Math.min(pickNum + 1, total + 1);
-  const fields   = { picks: newPicks, currentPick: nextPick };
-  if (nextPick > total) fields.status = 'complete';
-  await saveDraftFields(fields);
-  document.getElementById('fb-pick-for').textContent = `Picked ${p.name} for ${drafter}!`;
-  document.getElementById('admin-pick-search').value = '';
-  window._adminPickPlayer = null;
-  setTimeout(() => document.getElementById('fb-pick-for').textContent = '', 3000);
 };
 
 function renderAdminEditPicks() {
