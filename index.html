@@ -85,7 +85,7 @@
   --d12:#10b981;--d13:#6366f1;--d14:#f43f5e;--d15:#eab308;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{height:100%}
+html{height:100%;overflow-x:hidden}
 body{font-family:'Inter',sans-serif;background:var(--field);color:var(--white);min-height:100dvh;overflow-x:hidden}
 
 /* LOADING */
@@ -154,7 +154,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .join-section.disabled{opacity:.38;pointer-events:none}
 .join-label{font-family:'Oswald',sans-serif;font-size:.9rem;color:var(--muted);letter-spacing:.06em}
 .join-name-display{font-family:'Oswald',sans-serif;font-size:.95rem;color:var(--amber)}
-.board-wrap{overflow:auto;max-height:calc(100dvh - 140px);padding-bottom:1rem;width:100%}
+.board-wrap{overflow:auto;max-height:calc(100dvh - 140px);padding-bottom:1rem}
 .draft-table{border-collapse:collapse;width:auto;table-layout:auto}
 .draft-table th{font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:.08em;color:var(--muted);background:var(--panel);padding:.5rem .4rem;text-align:center;position:sticky;top:0;border-bottom:1px solid var(--line);white-space:nowrap;z-index:10;overflow:hidden;text-overflow:ellipsis}
 .draft-table td{border:1px solid var(--line);vertical-align:top;width:auto}
@@ -188,7 +188,7 @@ nav{background:var(--panel);border-bottom:2px solid var(--amber);display:flex;al
 .pick-cell.pos-TE .pick-num,.pick-cell.pos-TE .pick-team,.pick-cell.pos-TE .pick-bye{color:rgba(255,255,255,.65)}
 .pick-cell.pos-K  .pick-num,.pick-cell.pos-K  .pick-team,.pick-cell.pos-K  .pick-bye{color:rgba(0,0,0,.55)}
 .pick-cell.pos-DST .pick-num,.pick-cell.pos-DST .pick-team,.pick-cell.pos-DST .pick-bye{color:rgba(255,255,255,.65)}
-#tab-content-board{max-width:none;padding:1rem 1rem}
+#tab-content-board{max-width:none;width:100%;padding:1rem;overflow:hidden;box-sizing:border-box}
 .pick-num{font-size:.58rem;margin-bottom:.1rem}
 .pick-name{font-size:.78rem;font-weight:700;line-height:1.2;margin-bottom:.15rem}
 .pick-meta{display:flex;gap:.2rem;flex-wrap:wrap;align-items:center}
