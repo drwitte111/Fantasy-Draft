@@ -734,8 +734,8 @@ if (window._firebaseReady) {
 }
 
 async function bootApp() {
-  await loadPlayerData();
-  await loadStatsData();
+  try { await loadPlayerData(); } catch(e) { console.warn('Rankings CSV unavailable:', e); }
+  try { await loadStatsData(); }  catch(e) { console.warn('Stats CSV unavailable:', e); }
   document.getElementById('loading-overlay').classList.add('hidden');
   document.getElementById('nav-user-label').textContent = currentUser;
   if (isAdmin()) {
